@@ -1,5 +1,5 @@
 [Unit]
-Description=Your Python Agent
+Description=Data collection agent - CDLOG
 After=network.target
 
 [Service]
