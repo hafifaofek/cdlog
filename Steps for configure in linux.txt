@@ -1,12 +1,17 @@
 Steps for configure in linux
 cd /home/ofek
 
+
+# In /home/ofek, the next files should be:
+# cdlog.py, cdlog.conf, cdlog.service, install.sh
+
 pyinstaller --onefile cdlog.py
 
-sudo cp /home/ofek/cdlog.conf /home/ofek/dist/
+sudo mv /home/ofek/cdlog.conf /home/ofek/dist/
 
-sudo mv cdlog.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl start cdlog.service
-sudo systemctl enable cdlog.service
+sudo mkdir /home/ofek/cdlog_package
+sudo mv cdlog.service cdlog_package/
+sudo mv dist/* cdlog_package/
+sudo mv install.sh cdlog_package/
+
 journalctl -f -u cdlog.service

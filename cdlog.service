@@ -4,12 +4,12 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart="/home/ofek/dist/cdlog"
+ExecStart="/etc/cdlog/cdlog"
 Restart=always
 User=ofek
 Group=ofek
-WorkingDirectory=/home/ofek
-Environment="CONFIG_FILE=/home/ofek/dist/cdlog.conf"
+WorkingDirectory=/etc/cdlog
+Environment="CONFIG_FILE=/etc/cdlog/cdlog.conf"
 
 [Install]
 WantedBy=multi-user.target
