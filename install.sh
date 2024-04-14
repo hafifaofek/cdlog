@@ -9,6 +9,9 @@ SERVICE_UNIT_FILE_PATH="./cdlog.service"
 sudo rm -rf /etc/cdlog
 sudo mkdir /etc/cdlog
 
+# premissions
+sudo chmod +x $EXECUTABLE_PATH
+
 # Copy executable to /usr/local/bin
 sudo cp $EXECUTABLE_PATH /usr/local/bin/cdlog
 sudo cp $EXECUTABLE_PATH /etc/cdlog/cdlog

@@ -14,4 +14,7 @@ sudo mv cdlog.service cdlog_package/
 sudo mv dist/* cdlog_package/
 sudo mv install.sh cdlog_package/
 
+cd cdlog_package
+sudo chmod +x install.sh
+
 journalctl -f -u cdlog.service
