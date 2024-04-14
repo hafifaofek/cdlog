@@ -1,6 +1,5 @@
-Steps for configure in linux
+#Steps for configure in linux
 cd /home/ofek
-
 
 # In /home/ofek, the next files should be:
 # cdlog.py, cdlog.conf, cdlog.service, install.sh
@@ -17,6 +16,11 @@ sudo mv install.sh cdlog_package/
 cd cdlog_package
 sudo chmod +x install.sh
 
+# tar and untar
+#tar -czvf cdlog_install_package.tar.gz cdlog_package
+#tar -xzvf cdlog_install_package.tar.gz
+
 sudo ./install.sh
 
-journalctl -f -u cdlog.service
+# you can use this command to see the work of cdlog.service
+#journalctl -f -u cdlog.service
