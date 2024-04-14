@@ -39,7 +39,7 @@ def print_logs(logs):
   print(logs)
 
 def main():
-    with open("cdlog.config", 'r') as f:
+    with open("cdlog.conf", 'r') as f:
         config = yaml.safe_load(f)
 
     # Extract configuration parameters
