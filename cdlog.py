@@ -1,6 +1,7 @@
 import socket
 import os
 import time
+import yaml
 
 # Function to collect new logs from log files
 def collect_new_logs(log_directory, log_positions):
@@ -37,12 +38,15 @@ def send_logs(logs, ip, port):
 def print_logs(logs):
   print(logs)
 
-if __name__ == "__main__":
-    # Specify the directory containing logs
-    log_directory = "/var/log"
-    # Specify the IP address and port of the remote server
-    server_ip = "192.168.1.100"
-    server_port = 12345
+def main():
+    with open("cdlog.config", 'r') as f:
+        config = yaml.safe_load(f)
+
+    # Extract configuration parameters
+    log_directory = config["log_directory"]
+    destination_ip = config["destination_ip"]
+    destination_port = config["destination_port"]
+
     # Dictionary to store the last read positions of log files
     log_positions = {}
 
@@ -57,6 +61,8 @@ if __name__ == "__main__":
         new_logs = collect_new_logs(log_directory, log_positions)
         print_logs(new_logs)
         # Send new logs to the server
-        send_logs(new_logs, server_ip, server_port)
+        send_logs(new_logs, destination_ip, destination_port)
         # Wait for 60 seconds before sending logs again
         time.sleep(60)
+if __name__ == "__main__":
+    main()
