@@ -6,8 +6,8 @@ After=network.target
 Type=simple
 ExecStart="/etc/cdlog/cdlog"
 Restart=always
-User=ofek
-Group=ofek
+User=root
+Group=root
 WorkingDirectory=/etc/cdlog
 Environment="CONFIG_FILE=/etc/cdlog/cdlog.conf"
 
