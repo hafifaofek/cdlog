@@ -8,7 +8,7 @@ ExecStart="/home/ofek/dist/cdlog"
 Restart=always
 User=ofek
 Group=ofek
-WorkingDirectory="/home/ofek"
+WorkingDirectory=/home/ofek
 Environment="CONFIG_FILE=/home/ofek/dist/cdlog.conf"
 
 [Install]
