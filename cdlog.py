@@ -36,7 +36,8 @@ def send_logs(logs, ip, port):
         print("Error:", e)
 
 def print_logs(logs):
-  print(logs)
+    for log in logs.values():
+        print(log)
 
 def main():
     with open("cdlog.conf", 'r') as f:
