@@ -44,7 +44,7 @@ def main():
         config = yaml.safe_load(f)
 
     # Extract configuration parameters
-    log_directory = config["log_directory"]
+    log_directories = config["log_directories"]
     destination_ip = config["destination_ip"]
     destination_port = config["destination_port"]
     files_formats = config["file_formats"]
@@ -52,12 +52,14 @@ def main():
     # Dictionary to store the last read positions of log files
     log_positions = {}
 
-    # Initialize log positions
-    for root, _, files in os.walk(log_directory):
-        for file in files:
-            for format in files_formats:
-                if file.endswith(format):
-                    log_positions[os.path.join(root, file)] = 0
+    # looping through each directory
+    for log_directory in log_directories:
+        # Initialize log positions
+        for root, _, files in os.walk(log_directory):
+            for file in files:
+                for format in files_formats:
+                    if file.endswith(format):
+                        log_positions[os.path.join(root, file)] = 0
 
     while True:
         # Collect new logs
