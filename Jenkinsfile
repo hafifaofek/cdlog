@@ -22,6 +22,7 @@ pipeline {
                 sh 'tar -czvf cdlog_install_package.tar.gz cdlog_package'
                 sh 'sudo mv -f cdlog_install_package.tar.gz /home/ofek'
                 sh 'sudo mv versions_site.html /data/index.html'
+                sh 'sudo mv logo.jpg /data'
                 sh 'sudo mv -f nginx.conf /etc/nginx/nginx.conf'
                 sh 'sudo systemctl restart nginx'
             }
