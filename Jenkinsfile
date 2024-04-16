@@ -48,6 +48,7 @@ pipeline {
                 // cleanWs deleteDirs: true, notFailBuild: true
                 // cleanWs()
                 cleanWs notFailBuild: true
+                
             }
         }
     }
