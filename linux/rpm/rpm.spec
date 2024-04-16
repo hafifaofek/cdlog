@@ -8,7 +8,7 @@ Summary:        CD Log Agent
 License:        MIT
 
 # Define the source file (your compiled Python agent)
-Source:         cdlog
+Source:         dist/cdlog
 
 # Define the dependencies (if any)
 Requires:       python3, systemd
@@ -25,9 +25,9 @@ cp cdlog.conf /etc/cdlog/cdlog.conf
 
 # Define the files to be installed
 %files
-cdlog
-cdlog.conf
-cdlog.service
+./cdlog
+./cdlog.conf
+/cdlog.service
 
 # Define the scriptlets for systemd services
 %post

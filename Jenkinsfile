@@ -46,7 +46,7 @@ pipeline {
                 sh 'sudo cp cdlog.service my_rpm_project/SOURCES'
                 sh 'sudo cp dist/cdlog linux/rpm'
                 sh 'sudo cp dist/cdlog /root/rpmbuild/SOURCES'
-                sh 'sudo rpmbuild -ba linux/rpm/rpm.spec'
+                sh 'sudo rpmbuild -sourcesdir ./ -ba linux/rpm/rpm.spec'
                 sh 'sudo cp rpm.rpm /home/ofek'
             }
         }
