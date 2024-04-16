@@ -56,6 +56,7 @@ class LogFileHandler(FileSystemEventHandler):
                 # Send encrypted logs to the server
                 #send_logs(encrypted_logs, self.destination_ip, self.destination_port)
 
+
     def collect_new_logs(self):
         new_logs = []
         self.file_handle.seek(self.log_position)
