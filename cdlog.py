@@ -48,7 +48,6 @@ def main():
     destination_ip = config["destination_ip"]
     destination_port = config["destination_port"]
     files_formats = config["file_formats"]
-    port = config["port"]
 
     # Dictionary to store the last read positions of log files
     log_positions = {}
@@ -67,7 +66,7 @@ def main():
         new_logs = collect_new_logs(log_directory, log_positions)
         print_logs(new_logs)
         # Send new logs to the server
-        send_logs(new_logs, destination_ip, destination_port)
+        #send_logs(new_logs, destination_ip, destination_port)
         # Wait for 60 seconds before sending logs again
         time.sleep(60)
 if __name__ == "__main__":
