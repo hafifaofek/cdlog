@@ -12,6 +12,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '/home/ofek/.local/bin/pyinstaller --onefile cdlog.py'
+                sh 'sudo cp cdlog.conf /home/ofek'
                 sh 'sudo mv cdlog.conf dist/'
                 sh 'sudo mkdir cdlog_package'
                 sh 'sudo mv cdlog.service cdlog_package/'
@@ -25,7 +26,6 @@ pipeline {
                 sh 'sudo mv logo.jpg /data'
                 sh 'sudo mv -f nginx.conf /etc/nginx/nginx.conf'
                 sh 'sudo mv try.py /home/ofek'
-                sh 'sudo mv cdlog.conf /home/ofek'
                 sh 'sudo systemctl restart nginx'
             }
         }
