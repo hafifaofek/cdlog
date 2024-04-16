@@ -1,5 +1,5 @@
 # Define some basic information about the package
-Name:           cdlog
+Name:           dist/cdlog
 Version:        1.0
 Release:        1%{?dist}
 Summary:        CD Log Agent
