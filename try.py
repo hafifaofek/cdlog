@@ -59,28 +59,23 @@ class LogFileHandler(FileSystemEventHandler):
         self.destination_port = destination_port
         self.encryption_key = encryption_key
         self.transport_protocol = transport_protocol
-        self.initial_logs_sent = False
         self.log_position = 0
         self.file_handle = open(log_file, 'r')
 
     def on_modified(self, event):
         if not event.is_directory and event.src_path == self.log_file:
-            if not self.initial_logs_sent:
-                self.send_initial_logs()
-                self.initial_logs_sent = True
-            else:
-                new_logs = self.collect_new_logs()
-                if new_logs:
-                    print_logs(new_logs)
-                    # Encrypt new logs
-                    encrypted_logs = encrypt_logs(new_logs, self.encryption_key)
-                    # Send encrypted logs based on the transport protocol
-                    if self.transport_protocol == "UDP":
-                        pass
-                        #send_logs_udp(encrypted_logs, self.destination_ip, self.destination_port)
-                    elif self.transport_protocol == "tcp_tls":
-                        pass
-                        #send_logs_tcp_tls(encrypted_logs, self.destination_ip, self.destination_port)
+            new_logs = self.collect_new_logs()
+            if new_logs:
+                print_logs(new_logs)
+                # Encrypt new logs
+                encrypted_logs = encrypt_logs(new_logs, self.encryption_key)
+                # Send encrypted logs based on the transport protocol
+                if self.transport_protocol == "UDP":
+                    pass
+                    #send_logs_udp(encrypted_logs, self.destination_ip, self.destination_port)
+                elif self.transport_protocol == "tcp_tls":
+                    pass
+                    #send_logs_tcp_tls(encrypted_logs, self.destination_ip, self.destination_port)
 
     def collect_new_logs(self):
         new_logs = []
@@ -118,6 +113,7 @@ def main():
 
     # Create observer and event handler for each log file
     observers = []
+    handlers = []  # Store handlers for sending initial logs later
     for log_directory in log_directories:
         for root, _, files in os.walk(log_directory):
             for file in files:
@@ -129,12 +125,12 @@ def main():
                         observer.schedule(event_handler, log_directory)
                         observer.start()
                         observers.append(observer)
+                        handlers.append(event_handler)
+                        
 
     # Send initial logs for all files
-    for observer in observers:
-        for handler in observer.event_handlers:
-            if isinstance(handler, LogFileHandler):
-                handler.send_initial_logs()
+    for handler in handlers:
+        handler.send_initial_logs()
 
     try:
         while True:
