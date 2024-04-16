@@ -35,7 +35,12 @@ pipeline {
         }
         stage('Deploy rpm') {
             steps {
-                sh 'mkdir -p my_rpm_project/{BUILD,RPMS,SOURCES,SPECS,SRPMS}'
+                sh 'sudo mkdir my_rpm_project'
+                sh 'sudo mkdir my_rpm_project/BUILD'
+                sh 'sudo mkdir my_rpm_project/RPMS'
+                sh 'sudo mkdir my_rpm_project/SOURCES'
+                sh 'sudo mkdir my_rpm_project/SPECS'
+                sh 'sudo mkdir my_rpm_project/SRPMS'
                 sh 'sudo cp dist/cdlog my_rpm_project/SOURCES'
                 sh 'sudo cp cdlog.conf my_rpm_project/SOURCES'
                 sh 'sudo cp cdlog.service my_rpm_project/SOURCES'
