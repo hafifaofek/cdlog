@@ -46,8 +46,8 @@ pipeline {
         stage('Clean') {
             steps {
                 // cleanWs deleteDirs: true, notFailBuild: true
-                cleanWs()
-                // cleanWs notFailBuild: true
+                // cleanWs()
+                cleanWs notFailBuild: true
             }
         }
     }
