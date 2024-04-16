@@ -25,7 +25,7 @@ cp cdlog.conf /etc/cdlog/cdlog.conf
 
 # Define the files to be installed
 %files
-./cdlog
+./dist/cdlog
 ./cdlog.conf
 /cdlog.service
 
