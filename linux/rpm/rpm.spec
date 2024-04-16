@@ -13,6 +13,9 @@ Source:         cdlog-agent
 # Define the dependencies (if any)
 Requires:       python3, systemd
 
+%description
+Your Python agent description.
+
 # Define the pre-install scriptlet
 %pre
 # Create the necessary directory structure
