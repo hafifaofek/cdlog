@@ -8,7 +8,7 @@ Summary:        CD Log Agent
 License:        MIT
 
 # Define the source file (your compiled Python agent)
-Source:         ./cdlog
+Source:         /var/lib/workspaces/cdlog/cdlog
 
 # Define the dependencies (if any)
 Requires:       python3, systemd
