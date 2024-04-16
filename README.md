@@ -10,3 +10,4 @@ And that's it, you are all set :)
 
 You may use the next command in order to see the running service-
 journalctl -f -u cdlog.service
+f
