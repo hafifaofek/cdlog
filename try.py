@@ -57,10 +57,13 @@ class LogFileHandler(FileSystemEventHandler):
         self.log_file = log_file
         self.destination_ip = destination_ip
         self.destination_port = destination_port
-        self.log_position = 0
-        self.file_handle = open(log_file, 'r')
         self.encryption_key = encryption_key
         self.transport_protocol = transport_protocol
+        self.log_position = 0
+        # Read the entire content of the log file initially
+        with open(log_file, 'r') as f:
+            self.initial_logs = f.readlines()
+            self.log_position = f.tell()  # Set the pointer to the end of the file
 
     def on_modified(self, event):
         if not event.is_directory and event.src_path == self.log_file:
@@ -69,7 +72,6 @@ class LogFileHandler(FileSystemEventHandler):
                 print_logs(new_logs)
                 # Encrypt new logs
                 encrypted_logs = encrypt_logs(new_logs, self.encryption_key)
-                print(encrypt_logs)
                 # Send encrypted logs based on the transport protocol
                 if self.transport_protocol == "UDP":
                     pass
@@ -80,10 +82,14 @@ class LogFileHandler(FileSystemEventHandler):
 
     def collect_new_logs(self):
         new_logs = []
-        self.file_handle.seek(self.log_position)
-        for line in self.file_handle:
-            new_logs.append(line.strip())
-        self.log_position = self.file_handle.tell()
+        with open(self.log_file, 'r') as f:
+            # Read from the last known position
+            f.seek(self.log_position)
+            # Append new logs to the list
+            for line in f:
+                new_logs.append(line.strip())
+            # Update the log position
+            self.log_position = f.tell()
         return new_logs
 
 def main():
@@ -97,6 +103,30 @@ def main():
     files_formats = config["file_formats"]
     encryption_key = config["encryption_key"]
     transport_protocol = config["transport_protocol"]
+
+    # Create a list to store the initial logs from all log files
+    initial_logs = []
+
+    # Collect initial logs from all log files
+    for log_directory in log_directories:
+        for root, _, files in os.walk(log_directory):
+            for file in files:
+                for format in files_formats:
+                    if file.endswith(format):
+                        log_file = os.path.join(root, file)
+                        with open(log_file, 'r') as f:
+                            initial_logs.extend(f.readlines())
+
+    # Encrypt the initial logs
+    encrypted_initial_logs = encrypt_logs(initial_logs, encryption_key)
+
+    # Send the encrypted initial logs
+    if transport_protocol == "UDP":
+        pass
+        #send_logs_udp(encrypted_initial_logs, destination_ip, destination_port)
+    elif transport_protocol == "tcp_tls":
+        pass
+        #send_logs_tcp_tls(encrypted_initial_logs, destination_ip, destination_port)
 
     # Create observer and event handler for each log file
     observers = []
