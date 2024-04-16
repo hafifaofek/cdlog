@@ -39,7 +39,7 @@ pipeline {
                 sh 'sudo cp dist/cdlog my_rpm_project/SOURCES'
                 sh 'sudo cp cdlog.conf my_rpm_project/SOURCES'
                 sh 'sudo cp cdlog.service my_rpm_project/SOURCES'
-                sh 'sudo rpmbuild -ba rpm.spec'
+                sh 'sudo rpmbuild -ba linux/rpm/rpm.spec'
                 sh 'sudo cp rpm.rpm /home/ofek'
             }
         }
@@ -48,7 +48,7 @@ pipeline {
                 // cleanWs deleteDirs: true, notFailBuild: true
                 // cleanWs()
                 cleanWs notFailBuild: true
-                
+
             }
         }
     }
