@@ -21,12 +21,12 @@ Your Python agent description.
 # Create the necessary directory structure
 mkdir -p %{buildroot}/etc/cdlog
 # Copy the configuration file
-cp cdlog.conf %{buildroot}/etc/cdlog/cdlog.conf
+cp %{_sourcedir}/cdlog.conf %{buildroot}/etc/cdlog/cdlog.conf
 
 # Define the files to be installed
 %files
-%{buildroot}/cdlog
-%{buildroot}/etc/cdlog/cdlog.conf
+%{_bindir}/cdlog
+%config(noreplace) %{_sysconfdir}/cdlog/cdlog.conf
 %{_unitdir}/cdlog.service
 
 # Define the scriptlets for systemd services
