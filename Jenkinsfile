@@ -36,9 +36,9 @@ pipeline {
         stage('Deploy rpm') {
             steps {
                 sh 'mkdir -p my_rpm_project/{BUILD,RPMS,SOURCES,SPECS,SRPMS}'
-                sh 'sudo cp dist/cdlog my_rpm_project/SOURCES/'
-                sh 'sudo cp cdlog.conf my_rpm_project/SOURCES/'
-                sh 'sudo cp cdlog.service my_rpm_project/SOURCES/'
+                sh 'sudo cp dist/cdlog my_rpm_project/SOURCES'
+                sh 'sudo cp cdlog.conf my_rpm_project/SOURCES'
+                sh 'sudo cp cdlog.service my_rpm_project/SOURCES'
                 sh 'sudo rpmbuild -ba rpm.spec'
                 sh 'sudo cp rpm.rpm /home/ofek'
             }
