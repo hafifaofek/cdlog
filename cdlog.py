@@ -48,6 +48,7 @@ def main():
     destination_ip = config["destination_ip"]
     destination_port = config["destination_port"]
     files_formats = config["file_formats"]
+    port = config["port"]
 
     # Dictionary to store the last read positions of log files
     log_positions = {}

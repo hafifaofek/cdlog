@@ -19,6 +19,10 @@ sudo cp $EXECUTABLE_PATH /etc/cdlog/cdlog
 # Copy configuration file to /etc/cdlog
 sudo cp $CONFIG_FILE_PATH /etc/cdlog/cdlog.conf
 
+# creating user cdlog and giving minimum premissions
+sudo useradd cdlog
+sudo chmod o+r /var/log
+
 # Copy service unit file to /etc/systemd/system
 sudo cp $SERVICE_UNIT_FILE_PATH /etc/systemd/system/cdlog.service
 
