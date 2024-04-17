@@ -107,25 +107,27 @@ def main():
     log_directories = config["log_directories"]
     destination_ip = config["destination_ip"]
     destination_port = config["destination_port"]
-    files_formats = config["file_formats"]
     encryption_key = config["encryption_key"]
     transport_protocol = config["transport_protocol"]
 
     # Create observer and event handler for each log file
     observers = []
     handlers = []  # Store handlers for sending initial logs later
-    for log_directory in log_directories:
-        for root, _, files in os.walk(log_directory):
+    for log_dir in log_directories:
+        directory = log_dir["directory"]
+        formats = log_dir.get("formats", ["*"])  # Get formats if defined, otherwise use "*"
+        for root, _, files in os.walk(directory):
             for file in files:
-                for format in files_formats:
-                    if file.endswith(format):
+                for format in formats:
+                    if file.endswith(format) or format == "*":
                         log_file = os.path.join(root, file)
                         event_handler = LogFileHandler(log_file, destination_ip, destination_port, encryption_key, transport_protocol)
                         observer = Observer()
-                        observer.schedule(event_handler, log_directory)
+                        observer.schedule(event_handler, directory)  # Watch the directory containing the file
                         observer.start()
                         observers.append(observer)
                         handlers.append(event_handler)
+
                         
 
     # Send initial logs for all files
