@@ -35,15 +35,15 @@ pipeline {
         }
         stage('Deploy rpm') {
             steps {
-                sh 'sudo mkdir -p rpmbuild'
-                sh 'sudo mkdir -p rpmbuild/SOURCES'
-                sh 'sudo mkdir -p rpmbuild/SPECS'
+                sh 'sudo mkdir rpmbuild'
+                sh 'sudo mkdir rpmbuild/SOURCES'
+                sh 'sudo mkdir rpmbuild/SPECS'
                 sh 'sudo cp dist/cdlog rpmbuild/SOURCES'
                 sh 'sudo cp cdlog.conf rpmbuild/SOURCES'
                 sh 'sudo cp cdlog.service rpmbuild/SOURCES'
                 sh 'sudo cp cdlog.spec rpmbuild/SPECS'
                 sh 'cd rpmbuild/SPECS'
-                sh 'rpmbuild -ba cdlog.spec'
+                sh 'sudo rpmbuild -ba cdlog.spec'
                 sh 'sudo cp /var/lib/workspace/cdlog_linux/rpmbuild/x86_64/* /home/ofek'
             }
         }
