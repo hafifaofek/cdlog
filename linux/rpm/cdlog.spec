@@ -20,10 +20,10 @@ mkdir -p %{buildroot}/etc/systemd/system
 cp %{SOURCE0} %{buildroot}/etc/cdlog/cdlog
 cp %{SOURCE1} %{buildroot}/etc/cdlog/cdlog.conf
 cp %{SOURCE2} %{buildroot}/etc/systemd/system/cdlog.service
-
 cp %{SOURCE0} /etc/cdlog/cdlog
 cp %{SOURCE1} /etc/cdlog/cdlog.conf
 cp %{SOURCE2} /etc/systemd/system/cdlog.service
+chmod +x /etc/cdlog/cdlog
 # Reload systemd to pick up new service unit file
 sudo systemctl daemon-reload
 
@@ -34,8 +34,8 @@ sudo systemctl start cdlog.service
 %pre
 # creating user cdlog and giving minimum premissions
 sudo useradd cdlog
-chmod +x /etc/cdlog/cdlog
 mkdir /etc/cdlog
+
 
 %files
 %defattr(-,root,root)
