@@ -43,7 +43,7 @@ pipeline {
                 sh 'sudo cp cdlog.conf rpmbuild/SOURCES'
                 sh 'sudo cp cdlog.service rpmbuild/SOURCES'
                 sh 'cd rpmbuild/SPECS'
-                sh 'sudo rpmbuild -ba rpmbuild/SPECS/cdlog.spec'
+                sh 'rpmbuild -ba rpmbuild/SPECS/cdlog.spec'
                 sh 'sudo cp /var/lib/workspace/cdlog_linux/rpmbuild/x86_64/* /home/ofek'
             }
         }
