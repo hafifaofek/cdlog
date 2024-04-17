@@ -36,10 +36,6 @@ sudo systemctl start cdlog.service
 sudo useradd cdlog
 chmod +x /etc/cdlog/cdlog
 mkdir /etc/cdlog
-cp %{SOURCE0} /etc/cdlog/cdlog
-cp %{SOURCE1} /etc/cdlog/cdlog.conf
-cp %{SOURCE2} /etc/systemd/system/cdlog.service
-
 
 %files
 %defattr(-,root,root)
