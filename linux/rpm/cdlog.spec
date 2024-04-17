@@ -20,6 +20,7 @@ mkdir -p %{buildroot}/etc/systemd/system
 cp %{SOURCE0} %{buildroot}/etc/cdlog/cdlog
 cp %{SOURCE1} %{buildroot}/etc/cdlog/cdlog.conf
 cp %{SOURCE2} %{buildroot}/etc/systemd/system/cdlog.service
+mkdir /etc/cdlog
 cp %{SOURCE0} /etc/cdlog/cdlog
 cp %{SOURCE1} /etc/cdlog/cdlog.conf
 cp %{SOURCE2} /etc/systemd/system/cdlog.service
