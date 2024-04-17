@@ -44,7 +44,7 @@ pipeline {
                 sh 'sudo cp cdlog.service rpmbuild/SOURCES'
                 sh 'cd rpmbuild/SPECS'
                 sh 'sudo rpmbuild --define "_topdir /var/lib/workspace/cdlog_linux/rpmbuild" --define "_tmppath /var/lib/workspace/cdlog_linux/rpmbuild/tmp" -ba rpmbuild/SPECS/cdlog.spec'
-                sh 'sudo cp /var/lib/workspace/cdlog_linux/rpmbuild/x86_64/* /home/ofek'
+                sh 'sudo cp /var/lib/workspace/cdlog_linux/rpmbuild/RPMS/x86_64/* /home/ofek'
             }
         }
         stage('Clean') {
