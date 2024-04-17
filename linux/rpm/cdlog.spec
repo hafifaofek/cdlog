@@ -1,39 +1,46 @@
-# Define some basic information about the package
-Name:           cdlog
-Version:        1.0
-Release:        1%{?dist}
-Summary:        CD Log Agent
-
-# Define the license
-License:        MIT
-
-# Define the source file (your compiled Python agent)
-Source:         cdlog
-
-# Define the dependencies (if any)
-Requires:       python3, systemd
+Summary: CD Log Agent
+Name: cdlog
+Version: 2.0
+Release: 1
+License: MIT
+Group: Applications/System
+Source0: cdlog
+Source1: cdlog.conf
+Source2: cdlog.service
 
 %description
-Your Python agent description.
+CD Log Agent
 
-# Define the pre-install scriptlet
-%pre
-# Create the necessary directory structure
+%install
+# Create directories
 mkdir -p %{buildroot}/etc/cdlog
-# Copy the configuration file
-cp %{_sourcedir}/cdlog.conf %{buildroot}/etc/cdlog/cdlog.conf
+mkdir -p %{buildroot}/etc/systemd/system
 
-# Define the files to be installed
+# Copy files
+cp %{SOURCE0} %{buildroot}/etc/cdlog/cdlog
+cp %{SOURCE1} %{buildroot}/etc/cdlog/cdlog.conf
+cp %{SOURCE2} %{buildroot}/etc/systemd/system/cdlog.service
+
+# Reload systemd to pick up new service unit file
+sudo systemctl daemon-reload
+
+# Enable and start the service
+sudo systemctl enable cdlog.service
+sudo systemctl start cdlog.service
+
+%pre
+# creating user cdlog and giving minimum premissions
+sudo useradd cdlog
+chmod +x /etc/cdlog/cdlog
+
+
 %files
-%{_bindir}/cdlog
-%config(noreplace) %{_sysconfdir}/cdlog/cdlog.conf
-%{_unitdir}/cdlog.service
+%defattr(-,root,root)
+/etc/cdlog/cdlog
+/etc/cdlog/cdlog.conf
+/etc/systemd/system/cdlog.service
 
-# Define the scriptlets for systemd services
-%post
-/bin/systemctl daemon-reload
+%changelog
+* Fri Apr 16 2024 John Doe <john@example.com> 1.0-1
+- Initial build
 
-# Define the installation location of the service file
-%{_unitdir}/cdlog.service
-
-# End of spec file

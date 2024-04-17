@@ -35,22 +35,14 @@ pipeline {
         }
         stage('Deploy rpm') {
             steps {
-                sh 'sudo mkdir my_rpm_project'
-                sh 'sudo mkdir my_rpm_project/BUILD'
-                sh 'sudo mkdir my_rpm_project/RPMS'
-                sh 'sudo mkdir my_rpm_project/SOURCES'
-                sh 'sudo mkdir my_rpm_project/SPECS'
-                sh 'sudo mkdir my_rpm_project/SRPMS'
-                sh 'sudo cp dist/cdlog my_rpm_project/SOURCES'
-                sh 'sudo cp cdlog.conf my_rpm_project/SOURCES'
-                sh 'sudo cp cdlog.service my_rpm_project/SOURCES'
-                sh 'sudo cp dist/cdlog linux/rpm'
-                sh 'sudo cp dist/cdlog /root/rpmbuild/SOURCES'
-                sh 'sudo cp dist/cdlog cdlog'
-                sh 'sudo cp linux/rpm/cdlog.spec .'
-                //sh 'sudo rpmbuild --define "_sourcedir $(pwd)" -ba linux/rpm/rpm.spec'
-                sh 'rpmbuild -bb cdlog.spec'
-                sh 'sudo cp rpm.rpm /home/ofek'
+                sh 'sudo mkdir -p ~/rpmbuild/SOURCES ~/rpmbuild/SPECS'
+                sh 'sudo cp dist/cdlog rpmbuild/SOURCES'
+                sh 'sudo cp cdlog.conf rpmbuild/SOURCES'
+                sh 'sudo cp cdlog.service rpmbuild/SOURCES'
+                sh 'sudo cp cdlog.spec rpmbuild/SPECS'
+                sh 'cd rpmbuild/SPECS'
+                sh 'rpmbuild -ba cdlog.spec'
+                sh 'sudo cp /var/lib/workspace/cdlog_linux/rpmbuild/x86_64/* /home/ofek'
             }
         }
         stage('Clean') {
