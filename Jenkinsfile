@@ -49,6 +49,7 @@ pipeline {
         }
         stage('Clean') {
             steps {
+                sh 'echo hi'
                 // cleanWs deleteDirs: true, notFailBuild: true
                 // cleanWs()
                 //cleanWs notFailBuild: true
