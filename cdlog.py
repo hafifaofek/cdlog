@@ -90,7 +90,7 @@ class LogFileHandler(FileSystemEventHandler):
         initial_logs = []
         for line in self.file_handle:
             initial_logs.append(line.strip())
-        encrypted_initial_logs = encrypt_logs(initial_logs, self.encryption_key)
+        #encrypted_initial_logs = encrypt_logs(initial_logs, self.encryption_key)
         # Send the encrypted initial logs
         if self.transport_protocol == "UDP":
             pass
