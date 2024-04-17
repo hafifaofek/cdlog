@@ -116,17 +116,31 @@ def main():
     for log_dir in log_directories:
         directory = log_dir["directory"]
         formats = log_dir.get("formats", ["*"])  # Get formats if defined, otherwise use "*"
-        for root, _, files in os.walk(directory):
-            for file in files:
-                for format in formats:
-                    if file.endswith(format) or format == "*":
-                        log_file = os.path.join(root, file)
-                        event_handler = LogFileHandler(log_file, destination_ip, destination_port, encryption_key, transport_protocol)
-                        observer = Observer()
-                        observer.schedule(event_handler, directory)  # Watch the directory containing the file
-                        observer.start()
-                        observers.append(observer)
-                        handlers.append(event_handler)
+        # Assuming directory is the path to the directory or file
+        if os.path.isdir(directory):
+            # Handle as directory
+            for root, _, files in os.walk(directory):
+                for file in files:
+                    for format in formats:
+                        if file.endswith(format) or format == "*":
+                            log_file = os.path.join(root, file)
+                            event_handler = LogFileHandler(log_file, destination_ip, destination_port, encryption_key, transport_protocol)
+                            observer = Observer()
+                            observer.schedule(event_handler, directory)  # Watch the directory containing the file
+                            observer.start()
+                            observers.append(observer)
+                            handlers.append(event_handler)
+        else:
+            # Handle as file
+            for format in formats:
+                if file.endswith(format) or format == "*":
+                    log_file = os.path.join(root, file)
+                    event_handler = LogFileHandler(log_file, destination_ip, destination_port, encryption_key, transport_protocol)
+                    observer = Observer()
+                    observer.schedule(event_handler, directory)  # Watch the directory containing the file
+                    observer.start()
+                    observers.append(observer)
+                    handlers.append(event_handler)
 
                         
 
