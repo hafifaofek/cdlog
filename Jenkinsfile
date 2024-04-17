@@ -52,7 +52,7 @@ pipeline {
                 sh 'echo hi'
                 // cleanWs deleteDirs: true, notFailBuild: true
                 // cleanWs()
-                //cleanWs notFailBuild: true
+                cleanWs notFailBuild: true
 
             }
         }

@@ -60,7 +60,7 @@ class LogFileHandler(FileSystemEventHandler):
         self.encryption_key = encryption_key
         self.transport_protocol = transport_protocol
         self.log_position = 0
-        self.file_handle = open(log_file, 'r')
+        self.file_handle = open(log_file, 'r', encoding='utf-8', errors='ignore')
 
     def on_modified(self, event):
         if not event.is_directory and event.src_path == self.log_file:
