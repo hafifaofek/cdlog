@@ -64,6 +64,7 @@ class LogFileHandler(FileSystemEventHandler):
 
     def start_file_tracking(self):
         # Open the log file for reading
+        print(self.log_file)
         self.file_handle = open(self.log_file, 'r', encoding='utf-8', errors='ignore')
         # Get the initial position
         self.log_position = self.file_handle.tell()
@@ -73,6 +74,11 @@ class LogFileHandler(FileSystemEventHandler):
         if self.file_handle:
             self.file_handle.close()
             self.file_handle = None
+
+    def create_observer(self):
+        self.observer = Observer()
+        self.observer.schedule(self, os.path.dirname(self.log_file))
+        self.observer.start()
 
     def on_modified(self, event):
         if not event.is_directory and event.src_path == self.log_file:
@@ -91,6 +97,13 @@ class LogFileHandler(FileSystemEventHandler):
                     pass
                     #send_logs_tcp_tls(encrypted_logs, self.destination_ip, self.destination_port)
 
+            # Check if the file has been rotated (size decreased)
+            if os.path.exists(self.log_file) and os.path.getsize(self.log_file) < self.log_position:
+                print("Log file has been rotated.")
+                self.stop_file_tracking()
+                #self.start_file_tracking()
+                self.create_observer()
+   
     def on_moved(self, event):
         print("on moved")
         if not event.is_directory and event.src_path == self.log_file:
@@ -98,6 +111,8 @@ class LogFileHandler(FileSystemEventHandler):
             self.stop_file_tracking()
             # Start tracking the new file
             self.log_file = event.dest_path
+            print(event.dest_path)
+            print(self.log_file)
             self.start_file_tracking()
 
     def collect_new_logs(self):
