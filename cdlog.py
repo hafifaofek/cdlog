@@ -64,10 +64,12 @@ class LogFileHandler(FileSystemEventHandler):
 
     def start_file_tracking(self):
         # Open the log file for reading
-        print(self.log_file)
-        self.file_handle = open(self.log_file, 'r', encoding='utf-8', errors='ignore')
-        # Get the initial position
-        self.log_position = self.file_handle.tell()
+        try:
+            self.file_handle = open(self.log_file, 'r', encoding='utf-8', errors='ignore')
+            # Get the initial position
+            self.log_position = self.file_handle.tell()
+        except:
+            print(f"can't open file {self.log_file]}")
 
     def stop_file_tracking(self):
         # Close the file handle
@@ -144,8 +146,12 @@ class LogFileHandler(FileSystemEventHandler):
 
 
 def main():
-    with open("cdlog.conf", 'r') as f:
-        config = yaml.safe_load(f)
+    try:
+        with open("cdlog.conf", 'r') as f:
+            config = yaml.safe_load(f)
+    except:
+        print( "cdlog.conf file can't open")
+        exit()
 
     # Extract configuration parameters
     log_directories = config["log_directories"]
@@ -172,6 +178,7 @@ def main():
                             event_handler = LogFileHandler(log_file, destination_ip, destination_port, encryption_key, transport_protocol)
                             observer = Observer()
                             observer.schedule(event_handler, directory)  # Watch the directory containing the file
+                            event_handler.send_initial_logs()
                             observer.start()
                             observers.append(observer)
                             handlers.append(event_handler)
@@ -184,15 +191,10 @@ def main():
                     event_handler = LogFileHandler(log_file, destination_ip, destination_port, encryption_key, transport_protocol)
                     observer = Observer()
                     observer.schedule(event_handler, directory)  # Watch the directory containing the file
+                    event_handler.send_initial_logs()
                     observer.start()
                     observers.append(observer)
                     handlers.append(event_handler)
-
-                        
-
-    # Send initial logs for all files
-    for handler in handlers:
-        handler.send_initial_logs()
 
     try:
         while True:
