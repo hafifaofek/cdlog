@@ -69,7 +69,7 @@ class LogFileHandler(FileSystemEventHandler):
             # Get the initial position
             self.log_position = self.file_handle.tell()
         except:
-            print(f"can't open file {self.log_file]}")
+            print(f"can't open file {self.log_file}")
 
     def stop_file_tracking(self):
         # Close the file handle
