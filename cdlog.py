@@ -146,12 +146,8 @@ class LogFileHandler(FileSystemEventHandler):
 
 
 def main():
-    try:
-        with open("cdlog.conf", 'r') as f:
-            config = yaml.safe_load(f)
-    except:
-        print( "cdlog.conf file can't open")
-        exit()
+    with open("cdlog.conf", 'r') as f:
+        config = yaml.safe_load(f)
 
     # Extract configuration parameters
     log_directories = config["log_directories"]
