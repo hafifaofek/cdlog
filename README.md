@@ -1,5 +1,5 @@
 # cdlog
-CDLOG agent collects data from predefinds files in the computer.
+CDLOG agent collects data from predefinds files in the computer, manipulates them and sends them to destination ip.
 conf file is at - /etc/cdlog/cdlog.conf
 
 The directory cdlog_package contains all of files needed for the cdlog agent to work.
