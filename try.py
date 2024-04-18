@@ -7,8 +7,6 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from cryptography.fernet import Fernet
 import ssl
-from vector import LogEvent, Event
-
 
 # Function to encrypt logs using Fernet symmetric encryption
 def encrypt_logs(logs, key):
@@ -62,17 +60,29 @@ class LogFileHandler(FileSystemEventHandler):
         self.encryption_key = encryption_key
         self.transport_protocol = transport_protocol
         self.log_position = 0
-        self.file_handle = open(log_file, 'r', encoding='utf-8', errors='ignore')
+        self.file_handle = None
+
+    def start_file_tracking(self):
+        # Open the log file for reading
+        self.file_handle = open(self.log_file, 'r', encoding='utf-8', errors='ignore')
+        # Get the initial position
+        self.log_position = self.file_handle.tell()
+
+    def stop_file_tracking(self):
+        # Close the file handle
+        if self.file_handle:
+            self.file_handle.close()
+            self.file_handle = None
 
     def on_modified(self, event):
         if not event.is_directory and event.src_path == self.log_file:
+            if self.file_handle is None:
+                self.start_file_tracking()
             new_logs = self.collect_new_logs()
             if new_logs:
                 print_logs(new_logs)
-                # Process logs using Vector
-                processed_logs = process_logs_with_vector(new_logs)
-                # Encrypt processed logs
-                encrypted_logs = encrypt_logs(processed_logs, self.encryption_key)
+                # Encrypt new logs
+                encrypted_logs = encrypt_logs(new_logs, self.encryption_key)
                 # Send encrypted logs based on the transport protocol
                 if self.transport_protocol == "UDP":
                     pass
@@ -80,6 +90,15 @@ class LogFileHandler(FileSystemEventHandler):
                 elif self.transport_protocol == "tcp_tls":
                     pass
                     #send_logs_tcp_tls(encrypted_logs, self.destination_ip, self.destination_port)
+
+    def on_moved(self, event):
+        print("on moved")
+        if not event.is_directory and event.src_path == self.log_file:
+            # Stop tracking the old file
+            self.stop_file_tracking()
+            # Start tracking the new file
+            self.log_file = event.dest_path
+            self.start_file_tracking()
 
     def collect_new_logs(self):
         new_logs = []
@@ -90,10 +109,15 @@ class LogFileHandler(FileSystemEventHandler):
         return new_logs
 
     def send_initial_logs(self):
+        if self.file_handle is None:
+            self.start_file_tracking()
         self.file_handle.seek(0)
         initial_logs = []
         for line in self.file_handle:
             initial_logs.append(line.strip())
+        self.log_position = self.file_handle.tell()
+        for log in initial_logs:
+            print(log)
         #encrypted_initial_logs = encrypt_logs(initial_logs, self.encryption_key)
         # Send the encrypted initial logs
         if self.transport_protocol == "UDP":
@@ -103,15 +127,6 @@ class LogFileHandler(FileSystemEventHandler):
             pass
             #send_logs_tcp_tls(encrypted_initial_logs, self.destination_ip, self.destination_port)
 
-def process_logs_with_vector(logs):
-    # Placeholder for processing logs with Vector
-    # You need to implement this function to transform logs using Vector
-    processed_logs = []
-    for log in logs:
-        # Example: Convert log to JSON format
-        event = Event(log)
-        processed_logs.append(event.to_json())
-    return processed_logs
 
 def main():
     with open("cdlog.conf", 'r') as f:
@@ -130,6 +145,7 @@ def main():
     for log_dir in log_directories:
         directory = log_dir["directory"]
         formats = log_dir.get("formats", ["*"])  # Get formats if defined, otherwise use "*"
+
         # Assuming directory is the path to the directory or file
         if os.path.isdir(directory):
             # Handle as directory
@@ -146,15 +162,18 @@ def main():
                             handlers.append(event_handler)
         else:
             # Handle as file
+            file = directory
             for format in formats:
                 if file.endswith(format) or format == "*":
-                    log_file = os.path.join(root, file)
+                    log_file = file
                     event_handler = LogFileHandler(log_file, destination_ip, destination_port, encryption_key, transport_protocol)
                     observer = Observer()
                     observer.schedule(event_handler, directory)  # Watch the directory containing the file
                     observer.start()
                     observers.append(observer)
                     handlers.append(event_handler)
+
+                        
 
     # Send initial logs for all files
     for handler in handlers:
