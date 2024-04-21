@@ -35,9 +35,14 @@ class ConnectionManager:
     def connect(self):
         try:
             if self.protocol == "TCP":
-                context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-                self.socket = context.wrap_socket(socket.socket(socket.AF_INET), server_hostname=self.destination_ip)
+                client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+                if SERVER_CERT_FILE:
+                    ssl_context.load_verify_locations(cafile=SERVER_CERT_FILE)
+                ssl_client_socket = ssl_context.wrap_socket(client_socket, server_hostname=self.destination_ip)
+                self.socket = ssl_client_socket
                 self.socket.connect((self.destination_ip, self.destination_port))
+            
             elif self.protocol == "UDP":
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             print(f"{self.protocol} connection established.")
@@ -76,7 +81,8 @@ class ConnectionManager:
             self.socket.close()
             self.socket = None
         if self.timeout_thread:
-            self.timeout_thread.join()  # Wait for the timeout thread to terminate
+            #self.timeout_thread.join()  # Wait for the timeout thread to terminate
+            pass
         self.timeout_thread = None
 
 class LogFileHandler(FileSystemEventHandler):
@@ -129,6 +135,7 @@ class LogFileHandler(FileSystemEventHandler):
                 self.log_file = helper
                 # Start tracking the new log file
                 self.start_file_tracking()
+                self.create_observer()
                 # Close the current connection
                 self.connection_manager.close_connection()
                 # Reconnect and start a new timeout thread
@@ -151,6 +158,8 @@ class LogFileHandler(FileSystemEventHandler):
             initial_logs.append(line.strip())
         self.log_position = self.file_handle.tell()
         for log in initial_logs:
+            encrypted_logs = encrypt_logs(log, self.encryption_key)
+            self.connection_manager.send_logs(encrypted_logs)
             print(log)
 
     def create_observer(self):
@@ -159,6 +168,7 @@ class LogFileHandler(FileSystemEventHandler):
             self.observer = Observer()
             self.observer.schedule(self, directory)
             self.observer.start()
+            print("hi")
         else:
             print(f"Directory {directory} does not exist.")
 
@@ -175,7 +185,7 @@ def main():
 
     # Create connection manager
     connection_manager = ConnectionManager(destination_ip, destination_port, transport_protocol)
-
+    #connection_manager.socket.send("hello".encode())
     # Create handlers for each log file
     handlers = []  # Store handlers for sending initial logs later
     for log_dir in log_directories:
