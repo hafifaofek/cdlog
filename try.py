@@ -28,10 +28,9 @@ class ConnectionManager:
         self.destination_port = destination_port
         self.protocol = protocol
         self.socket = None
-        self.last_data_sent_time = time.time()
+        self.last_data_sent_time = None
+        self.timeout_thread = None  # Thread for checking connection timeout
         self.connect()
-        self.timeout_thread = threading.Thread(target=self.check_timeout_thread, daemon=True)
-        self.timeout_thread.start()
 
     def connect(self):
         try:
@@ -42,6 +41,8 @@ class ConnectionManager:
             elif self.protocol == "UDP":
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             print(f"{self.protocol} connection established.")
+            self.last_data_sent_time = time.time()  # Initialize last_data_sent_time
+            self.start_timeout_thread()  # Start the timeout thread
         except Exception as e:
             print("Error:", e)
 
@@ -52,18 +53,31 @@ class ConnectionManager:
                     self.socket.sendall(log)
                 elif self.protocol == "UDP":
                     self.socket.sendto(log, (self.destination_ip, self.destination_port))
-            self.last_data_sent_time = time.time()
+            self.last_data_sent_time = time.time()  # Update last_data_sent_time
             print(f"Logs sent successfully over {self.protocol}!")
         except Exception as e:
             print("Error:", e)
+            self.close_connection()
+
+    def start_timeout_thread(self):
+        # Thread for checking connection timeout
+        self.timeout_thread = threading.Thread(target=self.check_timeout_thread)
+        self.timeout_thread.start()
 
     def check_timeout_thread(self):
         while True:
-            if self.socket and (time.time() - self.last_data_sent_time) >= 300:
+            if self.socket and self.last_data_sent_time and (time.time() - self.last_data_sent_time) >= 300:
                 print(f"Closing {self.protocol} connection due to timeout.")
-                self.socket.close()
-                self.connect()
+                self.close_connection()
             time.sleep(60)  # Check timeout every minute
+
+    def close_connection(self):
+        if self.socket:
+            self.socket.close()
+            self.socket = None
+        if self.timeout_thread:
+            self.timeout_thread.join()  # Wait for the timeout thread to terminate
+        self.timeout_thread = None
 
 class LogFileHandler(FileSystemEventHandler):
     def __init__(self, log_file, connection_manager, encryption_key):
@@ -92,7 +106,6 @@ class LogFileHandler(FileSystemEventHandler):
         # Stop observing the current log file
         if self.observer:
             self.observer.stop()
-            #self.observer.join()
         self.observer = None
 
     def on_modified(self, event):
@@ -116,8 +129,10 @@ class LogFileHandler(FileSystemEventHandler):
                 self.log_file = helper
                 # Start tracking the new log file
                 self.start_file_tracking()
-                # Create a new observer for the new log file
-                self.create_observer()
+                # Close the current connection
+                self.connection_manager.close_connection()
+                # Reconnect and start a new timeout thread
+                self.connection_manager.connect()
 
     def collect_new_logs(self):
         new_logs = []
@@ -139,17 +154,13 @@ class LogFileHandler(FileSystemEventHandler):
             print(log)
 
     def create_observer(self):
-        
         directory = os.path.dirname(self.log_file)
         if os.path.exists(directory):
             self.observer = Observer()
             self.observer.schedule(self, directory)
             self.observer.start()
         else:
-            #time.sleep(2)
             print(f"Directory {directory} does not exist.")
-            time.sleep(2)
-            self.create_observer()
 
 def main():
     with open("cdlog.conf", 'r') as f:
