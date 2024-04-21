@@ -16,51 +16,84 @@ def encrypt_logs(logs, key):
         encrypted_logs.append(f.encrypt(log.encode()))
     return encrypted_logs
 
-# Function to send encrypted logs over UDP
-def send_logs_udp(logs, ip, port):
-    try:
-        # Create a UDP socket object
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # Send each encrypted log
-        for log in logs:
-            s.sendto(log, (ip, port))
-        # Close the socket
-        s.close()
-        print("Logs sent successfully over UDP!")
-    except Exception as e:
-        print("Error:", e)
-
-# Function to send encrypted logs over TCP with TLS
-def send_logs_tcp_tls(logs, ip, port):
-    try:
-        # Create a TCP socket object
-        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        s = context.wrap_socket(socket.socket(socket.AF_INET), server_hostname=ip)
-        # Connect to the server
-        s.connect((ip, port))
-        # Send each encrypted log
-        for log in logs:
-            s.sendall(log)
-        # Close the connection
-        s.close()
-        print("Logs sent successfully over TCP with TLS!")
-    except Exception as e:
-        print("Error:", e)
-
+# Function to print logs
 def print_logs(logs):
     for log in logs:
         print(log)
 
-class LogFileHandler(FileSystemEventHandler):
-    def __init__(self, log_file, destination_ip, destination_port, encryption_key, transport_protocol):
-        super(LogFileHandler, self).__init__()
-        self.log_file = log_file
+# Connection manager class for both TCP and UDP
+class ConnectionManager:
+    def __init__(self, destination_ip, destination_port, protocol):
         self.destination_ip = destination_ip
         self.destination_port = destination_port
+        self.protocol = protocol
+        self.socket = None
+        self.last_data_sent_time = None
+        self.timeout_thread = None  # Thread for checking connection timeout
+        self.connect()
+
+    def connect(self):
+        try:
+            if self.protocol == "TCP":
+                client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+                if SERVER_CERT_FILE:
+                    ssl_context.load_verify_locations(cafile=SERVER_CERT_FILE)
+                ssl_client_socket = ssl_context.wrap_socket(client_socket, server_hostname=self.destination_ip)
+                self.socket = ssl_client_socket
+                self.socket.connect((self.destination_ip, self.destination_port))
+            
+            elif self.protocol == "UDP":
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            print(f"{self.protocol} connection established.")
+            self.last_data_sent_time = time.time()  # Initialize last_data_sent_time
+            self.start_timeout_thread()  # Start the timeout thread
+        except Exception as e:
+            print("Error:", e)
+
+    def send_logs(self, logs):
+        try:
+            for log in logs:
+                if self.protocol == "TCP":
+                    self.socket.sendall(log)
+                elif self.protocol == "UDP":
+                    self.socket.sendto(log, (self.destination_ip, self.destination_port))
+            self.last_data_sent_time = time.time()  # Update last_data_sent_time
+            print(f"Logs sent successfully over {self.protocol}!")
+        except Exception as e:
+            print("Error:", e)
+            self.close_connection()
+
+    def start_timeout_thread(self):
+        # Thread for checking connection timeout
+        self.timeout_thread = threading.Thread(target=self.check_timeout_thread)
+        self.timeout_thread.start()
+
+    def check_timeout_thread(self):
+        while True:
+            if self.socket and self.last_data_sent_time and (time.time() - self.last_data_sent_time) >= 300:
+                print(f"Closing {self.protocol} connection due to timeout.")
+                self.close_connection()
+            time.sleep(60)  # Check timeout every minute
+
+    def close_connection(self):
+        if self.socket:
+            self.socket.close()
+            self.socket = None
+        if self.timeout_thread:
+            #self.timeout_thread.join()  # Wait for the timeout thread to terminate
+            pass
+        self.timeout_thread = None
+
+class LogFileHandler(FileSystemEventHandler):
+    def __init__(self, log_file, connection_manager, encryption_key):
+        super(LogFileHandler, self).__init__()
+        self.log_file = log_file
+        self.connection_manager = connection_manager
         self.encryption_key = encryption_key
-        self.transport_protocol = transport_protocol
         self.log_position = 0
         self.file_handle = None
+        self.observer = None
 
     def start_file_tracking(self):
         # Open the log file for reading
@@ -76,11 +109,10 @@ class LogFileHandler(FileSystemEventHandler):
         if self.file_handle:
             self.file_handle.close()
             self.file_handle = None
-
-    def create_observer(self):
-        self.observer = Observer()
-        self.observer.schedule(self, os.path.dirname(self.log_file))
-        self.observer.start()
+        # Stop observing the current log file
+        if self.observer:
+            self.observer.stop()
+        self.observer = None
 
     def on_modified(self, event):
         if not event.is_directory and event.src_path == self.log_file:
@@ -91,31 +123,23 @@ class LogFileHandler(FileSystemEventHandler):
                 print_logs(new_logs)
                 # Encrypt new logs
                 encrypted_logs = encrypt_logs(new_logs, self.encryption_key)
-                # Send encrypted logs based on the transport protocol
-                if self.transport_protocol == "UDP":
-                    pass
-                    #send_logs_udp(encrypted_logs, self.destination_ip, self.destination_port)
-                elif self.transport_protocol == "tcp_tls":
-                    pass
-                    #send_logs_tcp_tls(encrypted_logs, self.destination_ip, self.destination_port)
+                # Send encrypted logs
+                self.connection_manager.send_logs(encrypted_logs)
 
             # Check if the file has been rotated (size decreased)
             if os.path.exists(self.log_file) and os.path.getsize(self.log_file) < self.log_position:
                 print("Log file has been rotated.")
+                helper = self.log_file
                 self.stop_file_tracking()
-                #self.start_file_tracking()
+                # Update the log file path
+                self.log_file = helper
+                # Start tracking the new log file
+                self.start_file_tracking()
                 self.create_observer()
-   
-    def on_moved(self, event):
-        print("on moved")
-        if not event.is_directory and event.src_path == self.log_file:
-            # Stop tracking the old file
-            self.stop_file_tracking()
-            # Start tracking the new file
-            self.log_file = event.dest_path
-            print(event.dest_path)
-            print(self.log_file)
-            self.start_file_tracking()
+                # Close the current connection
+                self.connection_manager.close_connection()
+                # Reconnect and start a new timeout thread
+                self.connection_manager.connect()
 
     def collect_new_logs(self):
         new_logs = []
@@ -134,16 +158,19 @@ class LogFileHandler(FileSystemEventHandler):
             initial_logs.append(line.strip())
         self.log_position = self.file_handle.tell()
         for log in initial_logs:
+            encrypted_logs = encrypt_logs(log, self.encryption_key)
+            self.connection_manager.send_logs(encrypted_logs)
             print(log)
-        #encrypted_initial_logs = encrypt_logs(initial_logs, self.encryption_key)
-        # Send the encrypted initial logs
-        if self.transport_protocol == "UDP":
-            pass
-            #send_logs_udp(encrypted_initial_logs, self.destination_ip, self.destination_port)
-        elif self.transport_protocol == "tcp_tls":
-            pass
-            #send_logs_tcp_tls(encrypted_initial_logs, self.destination_ip, self.destination_port)
 
+    def create_observer(self):
+        directory = os.path.dirname(self.log_file)
+        if os.path.exists(directory):
+            self.observer = Observer()
+            self.observer.schedule(self, directory)
+            self.observer.start()
+            print("hi")
+        else:
+            print(f"Directory {directory} does not exist.")
 
 def main():
     with open("cdlog.conf", 'r') as f:
@@ -156,8 +183,10 @@ def main():
     encryption_key = config["encryption_key"]
     transport_protocol = config["transport_protocol"]
 
-    # Create observer and event handler for each log file
-    observers = []
+    # Create connection manager
+    connection_manager = ConnectionManager(destination_ip, destination_port, transport_protocol)
+    #connection_manager.socket.send("hello".encode())
+    # Create handlers for each log file
     handlers = []  # Store handlers for sending initial logs later
     for log_dir in log_directories:
         directory = log_dir["directory"]
@@ -171,35 +200,29 @@ def main():
                     for format in formats:
                         if file.endswith(format) or format == "*":
                             log_file = os.path.join(root, file)
-                            event_handler = LogFileHandler(log_file, destination_ip, destination_port, encryption_key, transport_protocol)
-                            observer = Observer()
-                            observer.schedule(event_handler, directory)  # Watch the directory containing the file
+                            # Create a new observer for each log file
+                            event_handler = LogFileHandler(log_file, connection_manager, encryption_key)
                             event_handler.send_initial_logs()
-                            observer.start()
-                            observers.append(observer)
+                            event_handler.create_observer()
                             handlers.append(event_handler)
         else:
             # Handle as file
-            file = directory
             for format in formats:
-                if file.endswith(format) or format == "*":
-                    log_file = file
-                    event_handler = LogFileHandler(log_file, destination_ip, destination_port, encryption_key, transport_protocol)
-                    observer = Observer()
-                    observer.schedule(event_handler, directory)  # Watch the directory containing the file
+                if directory.endswith(format) or format == "*":
+                    log_file = directory
+                    # Create a new observer for each log file
+                    event_handler = LogFileHandler(log_file, connection_manager, encryption_key)
                     event_handler.send_initial_logs()
-                    observer.start()
-                    observers.append(observer)
+                    event_handler.create_observer()
                     handlers.append(event_handler)
 
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        for observer in observers:
-            observer.stop()
-        for observer in observers:
-            observer.join()
+        # Stop and join observers
+        for handler in handlers:
+            handler.stop_file_tracking()
 
 if __name__ == "__main__":
     main()
