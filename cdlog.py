@@ -9,8 +9,14 @@ from cryptography.fernet import Fernet
 import ssl
 import logging
 
-logging.basicConfig(filename='/etc/cdlog/cdlog.log', level=logging.INFO)
-
+#logging.basicConfig(filename='/etc/cdlog/cdlog.log', level=logging.INFO)
+# Configure logging to include timestamps
+logging.basicConfig(
+    filename='/etc/cdlog/cdlog.log', 
+    level=logging.INFO,
+    format='%(levelname)s - %(asctime)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 # Function to encrypt logs using Fernet symmetric encryption
 def encrypt_logs(logs, key):
     f = Fernet(key)
@@ -57,15 +63,15 @@ class ConnectionManager:
             logging.error(f"Error in connection establishment: {e}")
             print("Error:", e)
 
-    def send_logs(self, logs):
+    def send_logs(self, logs, file_name):
         try:
             for log in logs:
                 if self.protocol == "TCP":
                     self.socket.sendall(log)
-                    logging.info("Sent log over TCP.")
+                    logging.info(f"Sent log over TCP from file - {file_name]}")
                 elif self.protocol == "UDP":
                     self.socket.sendto(log, (self.destination_ip, self.destination_port))
-                    logging.info("Sent log over UDP.")
+                    logging.info(f"Sent log over UDP from file - {file_name}.")
             self.last_data_sent_time = time.time()  # Update last_data_sent_time
             logging.info(f"Logs sent successfully over {self.protocol}!")
             print(f"Logs sent successfully over {self.protocol}!")
@@ -136,7 +142,7 @@ class LogFileHandler(FileSystemEventHandler):
                 # Encrypt new logs
                 encrypted_logs = encrypt_logs(new_logs, self.encryption_key)
                 # Send encrypted logs
-                self.connection_manager.send_logs(encrypted_logs)
+                self.connection_manager.send_logs(encrypted_logs, self.log_file)
 
             # Check if the file has been rotated (size decreased)
             if os.path.exists(self.log_file) and os.path.getsize(self.log_file) < self.log_position:
@@ -172,7 +178,7 @@ class LogFileHandler(FileSystemEventHandler):
         self.log_position = self.file_handle.tell()
         for log in initial_logs:
             encrypted_logs = encrypt_logs(log, self.encryption_key)
-            self.connection_manager.send_logs(encrypted_logs)
+            self.connection_manager.send_logs(encrypted_logs, self.log_file)
             print(log)
 
     def create_observer(self):
