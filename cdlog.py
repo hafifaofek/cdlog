@@ -64,16 +64,18 @@ class ConnectionManager:
             print("Error:", e)
 
     def send_logs(self, logs, file_name):
+        mone = 0
         try:
             for log in logs:
+                mone = mone + 1
                 if self.protocol == "TCP":
                     self.socket.sendall(log)
-                    logging.info(f"Sent log over TCP from file - {file_name}")
+                    #logging.info(f"Sent log over TCP from file - {file_name}")
                 elif self.protocol == "UDP":
                     self.socket.sendto(log, (self.destination_ip, self.destination_port))
-                    logging.info(f"Sent log over UDP from file - {file_name}.")
+                    #logging.info(f"Sent log over UDP from file - {file_name}.")
             self.last_data_sent_time = time.time()  # Update last_data_sent_time
-            logging.info(f"Logs sent successfully over {self.protocol}!")
+            logging.info(f"{mone} Logs sent successfully over {self.protocol} from file {file_name} to {self.destination_ip} on {self.destination_port}")
             print(f"Logs sent successfully over {self.protocol}!")
         except Exception as e:
             logging.error(f"Error in sending logs: {e}")
