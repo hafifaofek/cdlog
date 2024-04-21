@@ -1,0 +1,38 @@
+# Configuration for Python Log Agent - CDLOG
+
+# Here put the directories for gettings logs, for each file define formats
+# Add more directories as needed, put * for all formats
+log_directories:
+  - directory: "/var/log"
+    name: var_log
+    exclude: /var/log/audit.log
+    num_logs_to_send: 50
+    formats:
+      - ".txt"
+      - ".log"
+  
+  - directory: "/etc/cdlog"
+    name: etc_cdlog
+    exclude: /var/log/audit.log
+    num_logs_to_send: 20
+    formats:
+      - ".log"
+
+# Here put the destination server details
+destination_ip: "127.0.0.1"
+destination_port: 12345
+
+# Here put the encryption key
+encryption_key: "icM1Ve2trdRkDISzmBhVHczeyrpVGyXyw_AcNeHCPPM="
+
+#
+time_to_sent_logs_on_agent: 10
+
+# Here define the transport protocol
+transport_protocol: "UDP"
+processing:
+  inputs: [var_log, etc_cdlog]
+  add_fields: [time=10pm]
+  remove_fields: [name]
+  format: json
+  if_not_exists: ignore
