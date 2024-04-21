@@ -68,7 +68,7 @@ class ConnectionManager:
             for log in logs:
                 if self.protocol == "TCP":
                     self.socket.sendall(log)
-                    logging.info(f"Sent log over TCP from file - {file_name]}")
+                    logging.info(f"Sent log over TCP from file - {file_name}")
                 elif self.protocol == "UDP":
                     self.socket.sendto(log, (self.destination_ip, self.destination_port))
                     logging.info(f"Sent log over UDP from file - {file_name}.")
