@@ -7,6 +7,9 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from cryptography.fernet import Fernet
 import ssl
+import logging
+
+logging.basicConfig(filename='/etc/cdlog/cdlog.log', level=logging.INFO)
 
 # Function to encrypt logs using Fernet symmetric encryption
 def encrypt_logs(logs, key):
@@ -42,13 +45,16 @@ class ConnectionManager:
                 ssl_client_socket = ssl_context.wrap_socket(client_socket, server_hostname=self.destination_ip)
                 self.socket = ssl_client_socket
                 self.socket.connect((self.destination_ip, self.destination_port))
+                logging.info("TCP connection established.")
             
             elif self.protocol == "UDP":
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                logging.info("UDP connection established.")
             print(f"{self.protocol} connection established.")
             self.last_data_sent_time = time.time()  # Initialize last_data_sent_time
             self.start_timeout_thread()  # Start the timeout thread
         except Exception as e:
+            logging.error(f"Error in connection establishment: {e}")
             print("Error:", e)
 
     def send_logs(self, logs):
@@ -56,11 +62,15 @@ class ConnectionManager:
             for log in logs:
                 if self.protocol == "TCP":
                     self.socket.sendall(log)
+                    logging.info("Sent log over TCP.")
                 elif self.protocol == "UDP":
                     self.socket.sendto(log, (self.destination_ip, self.destination_port))
+                    logging.info("Sent log over UDP.")
             self.last_data_sent_time = time.time()  # Update last_data_sent_time
+            logging.info(f"Logs sent successfully over {self.protocol}!")
             print(f"Logs sent successfully over {self.protocol}!")
         except Exception as e:
+            logging.error(f"Error in sending logs: {e}")
             print("Error:", e)
             self.close_connection()
 
@@ -72,6 +82,7 @@ class ConnectionManager:
     def check_timeout_thread(self):
         while True:
             if self.socket and self.last_data_sent_time and (time.time() - self.last_data_sent_time) >= 300:
+                logging.info(f"Closing {self.protocol} connection due to timeout.")
                 print(f"Closing {self.protocol} connection due to timeout.")
                 self.close_connection()
             time.sleep(60)  # Check timeout every minute
@@ -102,6 +113,7 @@ class LogFileHandler(FileSystemEventHandler):
             # Get the initial position
             self.log_position = self.file_handle.tell()
         except:
+            logging.error(f"Error in opening file {self.log_file}: {e}")
             print(f"can't open file {self.log_file}")
 
     def stop_file_tracking(self):
@@ -128,6 +140,7 @@ class LogFileHandler(FileSystemEventHandler):
 
             # Check if the file has been rotated (size decreased)
             if os.path.exists(self.log_file) and os.path.getsize(self.log_file) < self.log_position:
+                logging.info(f"Log file {self.log_file} has been rotated.")
                 print("Log file has been rotated.")
                 helper = self.log_file
                 self.stop_file_tracking()
@@ -168,8 +181,10 @@ class LogFileHandler(FileSystemEventHandler):
             self.observer = Observer()
             self.observer.schedule(self, directory)
             self.observer.start()
+            logging.info(f"Observer created for file {directory}.")
             print("hi")
         else:
+            logging.error(f"Directory {directory} does not exist.")
             print(f"Directory {directory} does not exist.")
 
 def main():
