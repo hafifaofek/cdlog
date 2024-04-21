@@ -202,8 +202,8 @@ def main():
                             log_file = os.path.join(root, file)
                             # Create a new observer for each log file
                             event_handler = LogFileHandler(log_file, connection_manager, encryption_key)
-                            event_handler.create_observer()
                             event_handler.send_initial_logs()
+                            event_handler.create_observer()
                             handlers.append(event_handler)
         else:
             # Handle as file
@@ -212,8 +212,8 @@ def main():
                     log_file = directory
                     # Create a new observer for each log file
                     event_handler = LogFileHandler(log_file, connection_manager, encryption_key)
-                    event_handler.create_observer()
                     event_handler.send_initial_logs()
+                    event_handler.create_observer()
                     handlers.append(event_handler)
 
     try:
