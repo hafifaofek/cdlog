@@ -82,7 +82,7 @@ class ConnectionManager:
                     self.socket.sendto(logs.encode(), (self.destination_ip, self.destination_port))
                     #logging.info(f"Sent log over UDP from file - {file_name}.")
             self.last_data_sent_time = time.time()  # Update last_data_sent_time
-            logging.info(f"{mone} Logs sent successfully over {self.protocol} from file {file_name} to {self.destination_ip} on {self.destination_port}")
+            #logging.info(f"{mone} Logs sent successfully over {self.protocol} from file {file_name} to {self.destination_ip} on {self.destination_port}")
             #print(f"Logs sent successfully over {self.protocol}!")
         except Exception as e:
             logging.error(f"Error in sending logs: {e}")
@@ -112,14 +112,21 @@ class ConnectionManager:
         self.timeout_thread = None
 
 class LogFileHandler(FileSystemEventHandler):
-    def __init__(self, log_file, connection_manager, encryption_key):
+    def __init__(self, log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol):
         super(LogFileHandler, self).__init__()
         self.log_file = log_file
         self.connection_manager = connection_manager
         self.encryption_key = encryption_key
+        self.destination_ip = destination_ip
+        self.destination_port = destination_port
+        self.protocol = transport_protocol
         self.log_position = 0
         self.file_handle = None
         self.observer = None
+        self.log_count = 0
+        self.time_to_sent_logs_on_agent = time_to_sent_logs_on_agent
+        #self.log_logs_count_thread = threading.Thread(target=self.log_count_to_itself)
+        #self.log_logs_count_thread.start()
 
     def start_file_tracking(self):
         # Open the log file for reading
@@ -153,6 +160,7 @@ class LogFileHandler(FileSystemEventHandler):
                     encrypted_logs = encrypt_logs(log, self.encryption_key)
                     # Send encrypted logs
                     self.connection_manager.send_logs(encrypted_logs, self.log_file)
+                    self.log_count = self.log_count + 1
 
             # Check if the file has been rotated (size decreased)
             if os.path.exists(self.log_file) and os.path.getsize(self.log_file) < self.log_position:
@@ -189,6 +197,7 @@ class LogFileHandler(FileSystemEventHandler):
         for log in initial_logs:
             #encrypted_logs = encrypt_logs(log, self.encryption_key)
             self.connection_manager.send_logs(log, self.log_file)
+            self.log_count = self.log_count + 1
             #print(log)
 
     def create_observer(self):
@@ -203,6 +212,18 @@ class LogFileHandler(FileSystemEventHandler):
             logging.error(f"Directory {directory} does not exist.")
             print(f"Directory {directory} does not exist.")
 
+    def start_log_count_thread(self):
+        # Create and start a thread for my_function
+        threading.Thread(target=self.log_count_to_itself).start()
+    
+    def log_count_to_itself(self):
+        while True:
+            if not self.log_count == 0:
+                logging.info(f"{self.log_count} Logs sent successfully over {self.protocol} from file {self.log_file} to {self.destination_ip} on {self.destination_port}")
+                self.log_count = 0
+                print("hiiii")
+            time.sleep(self.time_to_sent_logs_on_agent)
+
 def main():
     with open("cdlog.conf", 'r') as f:
         config = yaml.safe_load(f)
@@ -213,6 +234,7 @@ def main():
     destination_port = config["destination_port"]
     encryption_key = config["encryption_key"]
     transport_protocol = config["transport_protocol"]
+    time_to_sent_logs_on_agent = config["time_to_sent_logs_on_agent"]
 
     # Create connection manager
     connection_manager = ConnectionManager(destination_ip, destination_port, transport_protocol)
@@ -232,8 +254,11 @@ def main():
                         if file.endswith(format) or format == "*":
                             log_file = os.path.join(root, file)
                             # Create a new observer for each log file
-                            event_handler = LogFileHandler(log_file, connection_manager, encryption_key)
+                            event_handler = LogFileHandler(log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol)
+                            #log_logs_count_thread = threading.Thread(target=event_handler.log_count_to_itself(event_handler)).start()
+                            #event_handler.start_log_count_thread()
                             event_handler.send_initial_logs()
+                            event_handler.start_log_count_thread()
                             event_handler.create_observer()
                             handlers.append(event_handler)
         else:
@@ -242,7 +267,7 @@ def main():
                 if directory.endswith(format) or format == "*":
                     log_file = directory
                     # Create a new observer for each log file
-                    event_handler = LogFileHandler(log_file, connection_manager, encryption_key)
+                    event_handler = LogFileHandler(log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent)
                     event_handler.send_initial_logs()
                     event_handler.create_observer()
                     handlers.append(event_handler)
@@ -257,4 +282,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
