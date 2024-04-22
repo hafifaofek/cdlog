@@ -8,6 +8,7 @@ from watchdog.events import FileSystemEventHandler
 from cryptography.fernet import Fernet
 import ssl
 import logging
+import sys
 
 #logging.basicConfig(filename='/etc/cdlog/cdlog.log', level=logging.INFO)
 # Configure logging to include timestamps
@@ -65,18 +66,24 @@ class ConnectionManager:
 
     def send_logs(self, logs, file_name):
         mone = 0
+        print(logs)
         try:
-            for log in logs:
-                mone = mone + 1
-                if self.protocol == "TCP":
-                    self.socket.sendall(log)
-                    #logging.info(f"Sent log over TCP from file - {file_name}")
-                elif self.protocol == "UDP":
-                    self.socket.sendto(log, (self.destination_ip, self.destination_port))
+            if isinstance(logs, list):
+                logs = logs[0]
+            
+            if self.protocol == "TCP":
+                self.socket.sendall(log)
+                #logging.info(f"Sent log over TCP from file - {file_name}")
+            elif self.protocol == "UDP":
+                if isinstance(logs, bytes):
+                    self.socket.sendto(logs, (self.destination_ip, self.destination_port))
+                
+                else:
+                    self.socket.sendto(logs.encode(), (self.destination_ip, self.destination_port))
                     #logging.info(f"Sent log over UDP from file - {file_name}.")
             self.last_data_sent_time = time.time()  # Update last_data_sent_time
             logging.info(f"{mone} Logs sent successfully over {self.protocol} from file {file_name} to {self.destination_ip} on {self.destination_port}")
-            print(f"Logs sent successfully over {self.protocol}!")
+            #print(f"Logs sent successfully over {self.protocol}!")
         except Exception as e:
             logging.error(f"Error in sending logs: {e}")
             print("Error:", e)
@@ -140,11 +147,12 @@ class LogFileHandler(FileSystemEventHandler):
                 self.start_file_tracking()
             new_logs = self.collect_new_logs()
             if new_logs:
-                print_logs(new_logs)
+                #print_logs(new_logs)
                 # Encrypt new logs
-                encrypted_logs = encrypt_logs(new_logs, self.encryption_key)
-                # Send encrypted logs
-                self.connection_manager.send_logs(encrypted_logs, self.log_file)
+                for log in new_logs:
+                    encrypted_logs = encrypt_logs(log, self.encryption_key)
+                    # Send encrypted logs
+                    self.connection_manager.send_logs(encrypted_logs, self.log_file)
 
             # Check if the file has been rotated (size decreased)
             if os.path.exists(self.log_file) and os.path.getsize(self.log_file) < self.log_position:
@@ -179,9 +187,9 @@ class LogFileHandler(FileSystemEventHandler):
             initial_logs.append(line.strip())
         self.log_position = self.file_handle.tell()
         for log in initial_logs:
-            encrypted_logs = encrypt_logs(log, self.encryption_key)
-            self.connection_manager.send_logs(encrypted_logs, self.log_file)
-            print(log)
+            #encrypted_logs = encrypt_logs(log, self.encryption_key)
+            self.connection_manager.send_logs(log, self.log_file)
+            #print(log)
 
     def create_observer(self):
         directory = os.path.dirname(self.log_file)
@@ -249,3 +257,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
