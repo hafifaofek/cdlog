@@ -112,7 +112,7 @@ class ConnectionManager:
         self.timeout_thread = None
 
 class LogFileHandler(FileSystemEventHandler):
-    def __init__(self, log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol):
+    def __init__(self, log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol, num_logs_to_send):
         super(LogFileHandler, self).__init__()
         self.log_file = log_file
         self.connection_manager = connection_manager
@@ -125,6 +125,7 @@ class LogFileHandler(FileSystemEventHandler):
         self.observer = None
         self.log_count = 0
         self.time_to_sent_logs_on_agent = time_to_sent_logs_on_agent
+        self.num_logs_to_send = num_logs_to_send
         #self.log_logs_count_thread = threading.Thread(target=self.log_count_to_itself)
         #self.log_logs_count_thread.start()
 
@@ -157,9 +158,9 @@ class LogFileHandler(FileSystemEventHandler):
                 #print_logs(new_logs)
                 # Encrypt new logs
                 for log in new_logs:
-                    encrypted_logs = encrypt_logs(log, self.encryption_key)
+                    #encrypted_logs = encrypt_logs(log, self.encryption_key)
                     # Send encrypted logs
-                    self.connection_manager.send_logs(encrypted_logs, self.log_file)
+                    self.connection_manager.send_logs(log, self.log_file)
                     self.log_count = self.log_count + 1
 
             # Check if the file has been rotated (size decreased)
@@ -190,10 +191,12 @@ class LogFileHandler(FileSystemEventHandler):
         if self.file_handle is None:
             self.start_file_tracking()
         self.file_handle.seek(0)
+        lines = self.file_handle.readlines()[-self.num_logs_to_send:]
+        position = self.file_handle.tell()
         initial_logs = []
-        for line in self.file_handle:
+        for line in lines:
             initial_logs.append(line.strip())
-        self.log_position = self.file_handle.tell()
+        self.log_position = position
         for log in initial_logs:
             #encrypted_logs = encrypt_logs(log, self.encryption_key)
             self.connection_manager.send_logs(log, self.log_file)
@@ -244,7 +247,7 @@ def main():
     for log_dir in log_directories:
         directory = log_dir["directory"]
         formats = log_dir.get("formats", ["*"])  # Get formats if defined, otherwise use "*"
-
+        num_logs_to_send = log_dir.get("num_logs_to_send", 0)
         # Assuming directory is the path to the directory or file
         if os.path.isdir(directory):
             # Handle as directory
@@ -254,7 +257,7 @@ def main():
                         if file.endswith(format) or format == "*":
                             log_file = os.path.join(root, file)
                             # Create a new observer for each log file
-                            event_handler = LogFileHandler(log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol)
+                            event_handler = LogFileHandler(log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol, num_logs_to_send)
                             #log_logs_count_thread = threading.Thread(target=event_handler.log_count_to_itself(event_handler)).start()
                             #event_handler.start_log_count_thread()
                             event_handler.send_initial_logs()
@@ -282,5 +285,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
