@@ -247,12 +247,14 @@ def main():
     for log_dir in log_directories:
         directory = log_dir["directory"]
         formats = log_dir.get("formats", ["*"])  # Get formats if defined, otherwise use "*"
+        excludes = log_dir.get("excludes", "none")
         num_logs_to_send = log_dir.get("num_logs_to_send", 0)
         # Assuming directory is the path to the directory or file
         if os.path.isdir(directory):
             # Handle as directory
             for root, _, files in os.walk(directory):
-                for file in files:
+                files_without_excludes = [x for x in files if x not in excludes]
+                for file in files_without_excludes:
                     for format in formats:
                         if file.endswith(format) or format == "*":
                             log_file = os.path.join(root, file)
@@ -285,4 +287,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 
