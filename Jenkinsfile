@@ -26,7 +26,7 @@ pipeline {
                 sh 'sudo chmod +x cdlog_package/install.sh'
                 sh 'tar -czvf cdlog_install_package.tar.gz cdlog_package'
                 sh 'sudo cp -f cdlog_install_package.tar.gz /home/ofek'
-                sh 'sudo cp versions_site.html /data/index.html'
+                // sh 'sudo cp versions_site.html /data/index.html'
                 sh 'sudo cp logo.jpg /data'
                 // sh 'sudo cp -f nginx.conf /etc/nginx/nginx.conf'
                 // sh 'sudo cp -f nginx_with_certificate.conf /etc/nginx/nginx.conf'
