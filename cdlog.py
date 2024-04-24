@@ -231,13 +231,78 @@ class LogFileHandler(FileSystemEventHandler):
     def start_log_count_thread(self):
         # Create and start a thread for my_function
         threading.Thread(target=self.log_count_to_itself).start()
-    
+        #self.thread = threading.Thread(target=self.log_count_to_itself)
+        #self.thread.daemon = True  # Set the thread as daemon
+        #self.thread.start()
+
     def log_count_to_itself(self):
         while True:
             if not self.log_count == 0:
                 logging.info(f"{self.log_count} Logs sent successfully over {self.protocol} from file {self.log_file} to {self.destination_ip} on {self.destination_port}")
                 self.log_count = 0
             time.sleep(self.time_to_sent_logs_on_agent)
+
+class PortListener:
+    def __init__(self, protocol, listen_port, destination_ip, destination_port, connection_manager, time_to_sent_logs_on_agent):
+        self.protocol = protocol
+        self.listen_port = listen_port
+        self.destination_ip = destination_ip
+        self.destination_port = destination_port
+        self.connection_manager = connection_manager
+        self.socket = None
+        self.time_to_sent_logs_on_agent = time_to_sent_logs_on_agent
+        self.log_count = 0
+
+    def run(self):
+        try:
+            if self.protocol == "TCP":
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.socket.bind(('0.0.0.0', self.listen_port))
+                self.socket.listen(1)
+                logging.info(f"TCP server listening on port {self.listen_port}")
+            elif self.protocol == "UDP":
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                self.socket.bind(('0.0.0.0', self.listen_port))
+                logging.info(f"UDP server listening on port {self.listen_port}")
+
+            self.receive_data()
+
+        except Exception as e:
+            logging.error(f"Error in starting {self.protocol} server: {e}")
+            print(f"Error in starting {self.protocol} server: {e}")
+
+    def receive_data(self):
+        while True:
+            try:
+                if self.protocol == "TCP":
+                    client_socket, _ = self.socket.accept()
+                    data = client_socket.recv(4096)
+                    
+                elif self.protocol == "UDP":
+                    data, _ = self.socket.recvfrom(4096)
+
+                if data:
+                    self.connection_manager.send_logs(data, f"port listener {self.listen_port}")
+                    self.log_count = self.log_count + 1
+
+            except Exception as e:
+                logging.error(f"Error in receiving data: {e}")
+                print(f"Error in receiving data: {e}")
+    
+    def start_port_listener_thread(self):
+        # Create and start a thread for my_function
+        threading.Thread(target=self.run).start()
+   
+    def start_log_count_thread(self):
+        threading.Thread(target=self.log_count_to_itself).start()
+
+    def log_count_to_itself(self):
+        while True:
+            if not self.log_count == 0:
+                logging.info(f"{self.log_count} Logs sent successfully over {self.protocol} from port {self.listen_port} to {self.destination_ip} on {self.destination_port}")
+                self.log_count = 0
+            time.sleep(self.time_to_sent_logs_on_agent)
+
 
 def main():
     with open("cdlog.conf", 'r') as f:
@@ -250,9 +315,15 @@ def main():
     encryption_key = config["encryption_key"]
     transport_protocol = config["transport_protocol"]
     time_to_sent_logs_on_agent = config["time_to_sent_logs_on_agent"]
+    listening_port = config["listening_port"]
+    listening_protocol = config["listening_protocol"]
 
     # Create connection manager
     connection_manager = ConnectionManager(destination_ip, destination_port, transport_protocol)
+    
+    port_listener = PortListener(listening_protocol, listening_port, destination_ip, destination_port, connection_manager, time_to_sent_logs_on_agent)
+    port_listener.start_port_listener_thread()
+    port_listener.start_log_count_thread()
 
     # Create handlers for each log file
     handlers = []  # Store handlers for sending initial logs later
