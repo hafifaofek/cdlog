@@ -453,7 +453,7 @@ def main():
     # Create connection manager
     connection_manager = ConnectionManager(destination_ip, destination_port, transport_protocol)
     
-    port_listener = PortListener(listening_protocol, listening_port, destination_ip, destination_port, connection_manager, time_to_sent_logs_on_agent, parser_manager, name_of_parser)
+    port_listener = PortListener(listening_protocol, listening_port, destination_ip, destination_port, connection_manager, time_to_sent_logs_on_agent, parser_manager, listening_parser_name)
     port_listener.start_port_listener_thread()
     port_listener.start_log_count_thread()
 
