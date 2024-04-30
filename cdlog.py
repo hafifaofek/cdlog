@@ -477,9 +477,20 @@ class Manage_SQL:
             # Fetch all rows from the result set
             rows = cur.fetchall()
 
-            # Print the rows
+            columns = [desc[0] for desc in cur.description]
+            #print(columns)
+            # Prepare data as a list of dictionaries
+            data = []
             for row in rows:
-                print(row)
+                row_data = {}
+                for col_name, value in zip(columns, row):
+                    row_data[col_name] = value
+                data.append(row_data)
+
+            # Convert data to JSON format
+            data_json = json.dumps(data)
+            print(data_json)
+
             time.sleep(select_time)
 
         # Close the cursor and connection
