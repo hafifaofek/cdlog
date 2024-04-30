@@ -217,8 +217,9 @@ class LogFileHandler(FileSystemEventHandler):
         self.log_position = position
         
         for log in initial_logs:
+            parsered_log = self.parser_manager.manage_parser(self.name_of_parser, log)
             #encrypted_logs = encrypt_logs(log, self.encryption_key)
-            self.connection_manager.send_logs(log, self.log_file)
+            self.connection_manager.send_logs(parsered_log, self.log_file)
             self.log_count = self.log_count + 1
 
     def create_observer(self):
