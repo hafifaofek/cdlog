@@ -433,10 +433,11 @@ class ParserManager:
 
 
 class Manage_SQL:
-    def __init__(self, db_credentials, db_command, connection_manager):
+    def __init__(self, db_credentials, db_command, connection_manager, db_name_of_parser):
         self.db_credentials = db_credentials
         self.db_command = db_command
         self.connection_manager = connection_manager
+        self.name_of_parser = db_name_of_parser
         self.connect_db()
 
     def connect_db(self):
@@ -487,7 +488,8 @@ class Manage_SQL:
                 for col_name, value in zip(columns, row):
                     row_data[col_name] = value
                 data_json = json.dumps(row_data)
-                self.connection_manager.send_logs(data_json, f"data from database")
+                parsered_log = self.parser_manager.manage_parser(self.name_of_parser, data_json)
+                self.connection_manager.send_logs(parsered_log, f"data from database")
                 #print(data_json) it is already printed in send_logs
 
             time.sleep(select_time)
@@ -516,7 +518,7 @@ def main():
     parsers = config.get('parsers', [])
     db_credentials = config.get("db_credentials", "none")
     db_command = config.get("db_command", "none")
-
+    db_name_of_parser = config.get("db_parser_name", "none")
     # create the parser manager
     parser_manager = ParserManager(parsers)
     
@@ -527,7 +529,7 @@ def main():
     port_listener.start_port_listener_thread()
     port_listener.start_log_count_thread()
 
-    sql_manager = Manage_SQL(db_credentials, db_command, connection_manager)
+    sql_manager = Manage_SQL(db_credentials, db_command, connection_manager, db_name_of_parser)
     sql_manager.start_sql_thread()
     # Create handlers for each log file
     handlers = []  # Store handlers for sending initial logs later
