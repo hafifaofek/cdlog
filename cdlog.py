@@ -18,6 +18,7 @@ import sys
 import re
 import json
 import datetime
+import psycopg2
 
 # Configure logging to include timestamps
 logging.basicConfig(
@@ -431,6 +432,63 @@ class ParserManager:
         return log
 
 
+class Manage_SQL:
+    def __init__(self, db_credentials, db_command):
+        self.db_credentials = db_credentials
+        self.db_command = db_command
+        self.connect_db()
+
+    def connect_db(self):
+        # Connect to the PostgreSQL database
+        if self.db_credentials == "none" or self.db_command == "none":
+            logging.error(f"Error in connecting to db")
+        else:
+            try:
+                self.conn = psycopg2.connect(
+                    dbname=self.db_credentials["db_name"],
+                    user=self.db_credentials["user"],
+                    password=self.db_credentials["password"],
+                    host=self.db_credentials["host"],
+                    port=self.db_credentials["port"])
+            except:
+                logging.error(f"Error in db credentials")
+            
+    
+    def manage(self):
+        # Create a cursor object
+        cur = self.conn.cursor()
+
+        select = self.db_command.get("SELECT", "none")
+        FROM = self.db_command.get("FROM", "none")
+        WHERE = self.db_command.get("WHERE", "none")
+        select_time = self.db_command["SELECT_TIME"]
+        command = ""
+        if select != "none":
+            command += f"SELECT {select} "
+        if FROM != "none":
+            command += f"FROM {FROM} "
+        if WHERE != "none":
+            command += f"WHERE {WHERE}"
+        command += f";"
+        while True:
+            # Execute a SELECT query
+            cur.execute(command)
+
+            # Fetch all rows from the result set
+            rows = cur.fetchall()
+
+            # Print the rows
+            for row in rows:
+                print(row)
+            time.sleep(select_time)
+
+        # Close the cursor and connection
+        cur.close()
+        self.conn.close()
+    
+    def start_sql_thread(self):
+        threading.Thread(target=self.manage).start()
+
 def main():
     with open("cdlog.conf", 'r') as f:
         config = yaml.safe_load(f)
@@ -446,6 +504,8 @@ def main():
     listening_protocol = config["listening_protocol"]
     listening_parser_name = config["listening_parser_name"]
     parsers = config.get('parsers', [])
+    db_credentials = config.get("db_credentials", "none")
+    db_command = config.get("db_command", "none")
 
     # create the parser manager
     parser_manager = ParserManager(parsers)
@@ -457,6 +517,8 @@ def main():
     port_listener.start_port_listener_thread()
     port_listener.start_log_count_thread()
 
+    sql_manager = Manage_SQL(db_credentials, db_command)
+    sql_manager.start_sql_thread()
     # Create handlers for each log file
     handlers = []  # Store handlers for sending initial logs later
     for log_dir in log_directories:

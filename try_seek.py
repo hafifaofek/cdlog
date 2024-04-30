@@ -6,50 +6,34 @@ import socket
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-# Function to send logs to a remote server
-def send_logs(logs, ip, port):
-    try:
-        # Create a socket object
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # Connect to the server
-        s.connect((ip, port))
-        # Send each log
-        for log in logs:
-            s.sendall(log.encode())
-        # Close the connection
-        s.close()
-        print("Logs sent successfully!")
-    except Exception as e:
-        print("Error:", e)
+import psycopg2
 
-def print_logs(logs):
-    for log in logs:
-        print(log)
+# Connect to the PostgreSQL database
+conn = psycopg2.connect(
+    dbname="ofek_db",
+    user="postgres",
+    password="Aa123456",
+    host="127.0.0.1",
+    port="5432"
+)
 
-class LogFileHandler(FileSystemEventHandler):
-    def __init__(self, log_file, destination_ip, destination_port):
-        super(LogFileHandler, self).__init__()
-        self.log_file = log_file
-        self.destination_ip = destination_ip
-        self.destination_port = destination_port
-        self.log_position = 0
-        self.file_handle = open(log_file, 'r')
+# Create a cursor object
+cur = conn.cursor()
 
-    def on_modified(self, event):
-        if not event.is_directory and event.src_path == self.log_file:
-            new_logs = self.collect_new_logs()
-            if new_logs:
-                print_logs(new_logs)
-                # Send new logs to the server
-                #send_logs(new_logs, self.destination_ip, self.destination_port)
+# Execute a SELECT query
+cur.execute("SELECT * FROM your_table_name")
 
-    def collect_new_logs(self):
-        new_logs = []
-        self.file_handle.seek(self.log_position)
-        for line in self.file_handle:
-            new_logs.append(line.strip())
-        self.log_position = self.file_handle.tell()
-        return new_logs
+# Fetch all rows from the result set
+rows = cur.fetchall()
+
+# Print the rows
+for row in rows:
+    print(row)
+
+# Close the cursor and connection
+cur.close()
+conn.close()
+
 
 def main():
     with open("cdlog.conf", 'r') as f:

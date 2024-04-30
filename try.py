@@ -15,6 +15,10 @@ from cryptography.fernet import Fernet
 import ssl
 import logging
 import sys
+import re
+import json
+import datetime
+import psycopg2
 
 # Configure logging to include timestamps
 logging.basicConfig(
@@ -122,7 +126,7 @@ class ConnectionManager:
         self.timeout_thread = None
 
 class LogFileHandler(FileSystemEventHandler):
-    def __init__(self, log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol, num_logs_to_send):
+    def __init__(self, log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol, num_logs_to_send, parser_manager, name_of_parser):
         super(LogFileHandler, self).__init__()
         self.log_file = log_file
         self.connection_manager = connection_manager
@@ -136,6 +140,8 @@ class LogFileHandler(FileSystemEventHandler):
         self.log_count = 0
         self.time_to_sent_logs_on_agent = time_to_sent_logs_on_agent
         self.num_logs_to_send = num_logs_to_send
+        self.parser_manager = parser_manager
+        self.name_of_parser = name_of_parser
 
     def start_file_tracking(self):
 
@@ -168,9 +174,10 @@ class LogFileHandler(FileSystemEventHandler):
                 #print_logs(new_logs)
                 # Encrypt new logs
                 for log in new_logs:
+                    parsered_log = self.parser_manager.manage_parser(self.name_of_parser, log)
                     #encrypted_logs = encrypt_logs(log, self.encryption_key)
                     # Send encrypted logs
-                    self.connection_manager.send_logs(log, self.log_file)
+                    self.connection_manager.send_logs(parsered_log, self.log_file)
                     self.log_count = self.log_count + 1
 
             # Check if the file has been rotated (size decreased)
@@ -212,8 +219,9 @@ class LogFileHandler(FileSystemEventHandler):
         self.log_position = position
         
         for log in initial_logs:
+            parsered_log = self.parser_manager.manage_parser(self.name_of_parser, log)
             #encrypted_logs = encrypt_logs(log, self.encryption_key)
-            self.connection_manager.send_logs(log, self.log_file)
+            self.connection_manager.send_logs(parsered_log, self.log_file)
             self.log_count = self.log_count + 1
 
     def create_observer(self):
@@ -243,7 +251,7 @@ class LogFileHandler(FileSystemEventHandler):
             time.sleep(self.time_to_sent_logs_on_agent)
 
 class PortListener:
-    def __init__(self, protocol, listen_port, destination_ip, destination_port, connection_manager, time_to_sent_logs_on_agent):
+    def __init__(self, protocol, listen_port, destination_ip, destination_port, connection_manager, time_to_sent_logs_on_agent, parser_manager, name_of_parser):
         self.protocol = protocol
         self.listen_port = listen_port
         self.destination_ip = destination_ip
@@ -252,6 +260,8 @@ class PortListener:
         self.socket = None
         self.time_to_sent_logs_on_agent = time_to_sent_logs_on_agent
         self.log_count = 0
+        self.parser_manager = parser_manager
+        self.name_of_parser = name_of_parser
 
     def run(self):
         try:
@@ -282,7 +292,8 @@ class PortListener:
                     data, _ = self.socket.recvfrom(4096)
 
                 if data:
-                    self.connection_manager.send_logs(data, f"port listener {self.listen_port}")
+                    parsered_log = self.parser_manager.manage_parser(self.name_of_parser, data)
+                    self.connection_manager.send_logs(parsered_log, f"port listener {self.listen_port}")
                     self.log_count = self.log_count + 1
 
             except Exception as e:
@@ -304,40 +315,180 @@ class PortListener:
             time.sleep(self.time_to_sent_logs_on_agent)
 
 
-def parsers():
-    pass
-    parsers = config["parsers"]
-    for parser in parsers:
-        format = parser["format"]
-    
-    current_parser = parser
-    for action in actions:
-        if action == "add field":
-            for field in fields:
-                pass
-
-
 class ParserManager:
     def __init__(self, parsers):
         self.parsers = parsers
         self.dict_of_parsers = {}
         self.load_parsers()
+        self.actions_options = {"add_fields": self.add_fields, "remove_fields": self.remove_fields, "change_fields": self.change_fields}
+        #self.manage_parser("parser 1")
+
     
     def load_parsers(self):
-        for parser in parsers:
+        for parser in self.parsers:
             parser_name = parser["name"]
             format = parser["format"]
             actions = parser["actions"]
-
+            for action in actions:
+                for key in action.keys():
+                    #print(key)
+                    pass
             self.dict_of_parsers.update({parser_name: {"format": format, "actions": actions}})
-            
     
-    def manage_parser(self, parser_name):
+    def manage_parser(self, parser_name, log):
         current_parser = self.dict_of_parsers[parser_name]
         format = current_parser["format"]
         actions = current_parser["actions"]
-        for action in actions:
+        try:
+            for action in actions:
+                for key in action.keys():
+                    log = self.actions_options[key](action.values(), format, log)
+            logging.info(f"Success in parsing log")
+        except Exception as e:
+            logging.error(f"Error in parsing log: {e}")
+        return log
+    
+    def add_fields(self, fields, format, log):
+        fields = list(fields)[0]["fields"]
+        for field in fields:
+            keys = list(field.keys())
+            values_of_field = field[keys[0]]
+            name_of_field = keys[0]
+
+            if "value_is_function" in keys:
+                value_is_function = field["value_is_function"]
+            else:
+                value_is_function = False
+
+            if value_is_function:
+                values_of_field = eval(values_of_field)
+
+            if format.lower() == "json":
+                log = json.loads(log)
+                log[name_of_field] = str(values_of_field)
+                updated_json_log = json.dumps(log)
+                log = updated_json_log
+                print(log)
             
+            elif format.lower() == "syslog":
+                log = f"{log} {name_of_field}={values_of_field}"
+                print(log)
+        
+        return log
+
+    def remove_fields(self, fields, format, log):
+        fields = list(fields)[0]["fields"]
+        for field in fields:
+            if format.lower() == "json":
+                
+                log = json.loads(log)
+                log.pop(field, None)
+                updated_json_log = json.dumps(log)
+                log = updated_json_log
+                print(log)
+            
+            elif format.lower() == "syslog":
+                # Regular expression pattern to match the field
+                pattern = f"{field}=[^ ]*"
+                
+                # Remove the field using regular expression substitution
+                updated_message = re.sub(pattern, '', log)
+                updated_message = re.sub('  ', ' ', updated_message)
+                
+                log = updated_message.strip()
+                print(log)
+        return log
+
+
+    def change_fields(self, fields, format, log):
+        fields = list(fields)[0]["fields"]
+        for field in fields:
+            keys = list(field.keys())
+            values_of_field = field[keys[0]]
+            name_of_field = keys[0]
+            if "value_is_function" in keys:
+                value_is_function = field["value_is_function"]
+            else:
+                value_is_function = False
+
+            if format.lower() == "json":
+                log = json.loads(log)
+                if value_is_function:
+                    values_of_field = eval(values_of_field)
+                log[name_of_field] = str(values_of_field)
+                updated_json_log = json.dumps(log)
+                log = updated_json_log
+                print(log)
+            
+            elif format.lower() == "syslog":
+                # Regular expression pattern to match the field
+                pattern = f"{name_of_field}=[^ ]*"
+                
+                # Remove the field using regular expression substitution
+                updated_message = re.sub(pattern, f"{name_of_field}={values_of_field}", log)
+                
+                log = updated_message.strip()
+                print(log)
+        return log
+
+
+class Manage_SQL:
+    def __init__(self, db_credentials, db_command):
+        self.db_credentials = db_credentials
+        self.db_command = db_command
+        self.connect_db()
+
+    def connect_db(self):
+        # Connect to the PostgreSQL database
+        if self.db_credentials == "none" or self.db_command == "none":
+            logging.error(f"Error in connecting to db")
+        else:
+            try:
+                self.conn = psycopg2.connect(
+                    dbname=self.db_credentials["db_name"],
+                    user=self.db_credentials["user"],
+                    password=self.db_credentials["password"],
+                    host=self.db_credentials["host"],
+                    port=self.db_credentials["port"])
+            except:
+                logging.error(f"Error in db credentials")
+            
+    
+    def manage(self):
+        # Create a cursor object
+        cur = self.conn.cursor()
+
+        select = self.db_command.get("SELECT", "none")
+        FROM = self.db_command.get("FROM", "none")
+        WHERE = self.db_command.get("WHERE", "none")
+        select_time = self.db_command["SELECT_TIME"]
+        command = ""
+        if select != "none":
+            command += f"SELECT {select} "
+        if FROM != "none":
+            command += f"FROM {FROM} "
+        if WHERE != "none":
+            command += f"WHERE {WHERE}"
+        command += f";"
+        while True:
+            # Execute a SELECT query
+            cur.execute(command)
+
+            # Fetch all rows from the result set
+            rows = cur.fetchall()
+
+            # Print the rows
+            for row in rows:
+                print(row)
+            time.sleep(select_time)
+
+        # Close the cursor and connection
+        cur.close()
+        self.conn.close()
+    
+    def start_sql_thread(self):
+        threading.Thread(target=self.manage).start()
+
 def main():
     with open("cdlog.conf", 'r') as f:
         config = yaml.safe_load(f)
@@ -351,17 +502,23 @@ def main():
     time_to_sent_logs_on_agent = config["time_to_sent_logs_on_agent"]
     listening_port = config["listening_port"]
     listening_protocol = config["listening_protocol"]
+    listening_parser_name = config["listening_parser_name"]
+    parsers = config.get('parsers', [])
+    db_credentials = config.get("db_credentials", "none")
+    db_command = config.get("db_command", "none")
 
+    # create the parser manager
+    parser_manager = ParserManager(parsers)
+    
     # Create connection manager
     connection_manager = ConnectionManager(destination_ip, destination_port, transport_protocol)
-    parsers = config.get('parsers', [])
-    parser_manager = ParserManager(parsers)
-        
     
-    port_listener = PortListener(listening_protocol, listening_port, destination_ip, destination_port, connection_manager, time_to_sent_logs_on_agent)
+    port_listener = PortListener(listening_protocol, listening_port, destination_ip, destination_port, connection_manager, time_to_sent_logs_on_agent, parser_manager, listening_parser_name)
     port_listener.start_port_listener_thread()
     port_listener.start_log_count_thread()
 
+    sql_manager = Manage_SQL(db_credentials, db_command)
+    sql_manager.start_sql_thread()
     # Create handlers for each log file
     handlers = []  # Store handlers for sending initial logs later
     for log_dir in log_directories:
@@ -370,6 +527,7 @@ def main():
         formats = log_dir.get("formats", ["*"])  # Get formats if defined, otherwise use "*"
         excludes = log_dir.get("excludes", "none")
         num_logs_to_send = log_dir.get("num_logs_to_send", 0)
+        name_of_parser = log_dir.get("name_of_parser", "none")
         
         # Assuming directory is the path to the directory or file
         if os.path.isdir(directory):
@@ -387,7 +545,7 @@ def main():
                         if file.endswith(format) or format == "*":
                             log_file = os.path.join(root, file)
                             # Create a new observer for each log file
-                            event_handler = LogFileHandler(log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol, num_logs_to_send)
+                            event_handler = LogFileHandler(log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol, num_logs_to_send, parser_manager, name_of_parser)
 
                             event_handler.send_initial_logs()
                             event_handler.start_log_count_thread()
@@ -399,7 +557,7 @@ def main():
                 if directory.endswith(format) or format == "*":
                     log_file = directory
                     # Create a new observer for each log file
-                    event_handler = LogFileHandler(log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol, num_logs_to_send)
+                    event_handler = LogFileHandler(log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol, num_logs_to_send, parser_manager, name_of_parser)
                     
                     event_handler.send_initial_logs()
                     event_handler.start_log_count_thread()
