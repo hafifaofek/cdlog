@@ -433,10 +433,11 @@ class ParserManager:
 
 
 class Manage_SQL:
-    def __init__(self, db_credentials, db_command, connection_manager, db_name_of_parser):
+    def __init__(self, db_credentials, db_command, connection_manager, parser_manager, db_name_of_parser):
         self.db_credentials = db_credentials
         self.db_command = db_command
         self.connection_manager = connection_manager
+        self.parser_manager = parser_manager
         self.name_of_parser = db_name_of_parser
         self.connect_db()
 
@@ -529,7 +530,7 @@ def main():
     port_listener.start_port_listener_thread()
     port_listener.start_log_count_thread()
 
-    sql_manager = Manage_SQL(db_credentials, db_command, connection_manager, db_name_of_parser)
+    sql_manager = Manage_SQL(db_credentials, db_command, connection_manager,parser_manager, db_name_of_parser)
     sql_manager.start_sql_thread()
     # Create handlers for each log file
     handlers = []  # Store handlers for sending initial logs later
