@@ -433,9 +433,10 @@ class ParserManager:
 
 
 class Manage_SQL:
-    def __init__(self, db_credentials, db_command):
+    def __init__(self, db_credentials, db_command, connection_manager):
         self.db_credentials = db_credentials
         self.db_command = db_command
+        self.connection_manager = connection_manager
         self.connect_db()
 
     def connect_db(self):
@@ -485,11 +486,9 @@ class Manage_SQL:
                 row_data = {}
                 for col_name, value in zip(columns, row):
                     row_data[col_name] = value
-                data.append(row_data)
-
-            # Convert data to JSON format
-            data_json = json.dumps(data)
-            print(data_json)
+                data_json = json.dumps(row_data)
+                self.connection_manager.send_logs(data_json, f"data from database")
+                print(data_json)
 
             time.sleep(select_time)
 
@@ -528,7 +527,7 @@ def main():
     port_listener.start_port_listener_thread()
     port_listener.start_log_count_thread()
 
-    sql_manager = Manage_SQL(db_credentials, db_command)
+    sql_manager = Manage_SQL(db_credentials, db_command, connection_manager)
     sql_manager.start_sql_thread()
     # Create handlers for each log file
     handlers = []  # Store handlers for sending initial logs later
