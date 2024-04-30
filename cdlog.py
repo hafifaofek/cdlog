@@ -429,7 +429,7 @@ class ParserManager:
     
     def change_format(self, fields, format, log):
         new_format = list(fields)[0]["new_format"]
-        print(new_format)
+
         if new_format.lower() == "syslog" and format.lower() == "json":
             syslog_entry = ""
             log = json.loads(log)
@@ -439,7 +439,7 @@ class ParserManager:
 
             # Remove trailing space and add any additional syslog fields if needed
             syslog_entry = syslog_entry.strip()
-            print(syslog_entry)
+            #print(syslog_entry)
             return syslog_entry
 
 
