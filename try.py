@@ -320,7 +320,7 @@ class ParserManager:
         self.parsers = parsers
         self.dict_of_parsers = {}
         self.load_parsers()
-        self.actions_options = {"add_fields": self.add_fields, "remove_fields": self.remove_fields, "change_fields": self.change_fields}
+        self.actions_options = {"add_fields": self.add_fields, "remove_fields": self.remove_fields, "change_fields": self.change_fields, "change_format": self.change_format}
         #self.manage_parser("parser 1")
 
     
@@ -329,10 +329,6 @@ class ParserManager:
             parser_name = parser["name"]
             format = parser["format"]
             actions = parser["actions"]
-            for action in actions:
-                for key in action.keys():
-                    #print(key)
-                    pass
             self.dict_of_parsers.update({parser_name: {"format": format, "actions": actions}})
     
     def manage_parser(self, parser_name, log):
@@ -368,11 +364,11 @@ class ParserManager:
                 log[name_of_field] = str(values_of_field)
                 updated_json_log = json.dumps(log)
                 log = updated_json_log
-                print(log)
+                #print(log)
             
             elif format.lower() == "syslog":
                 log = f"{log} {name_of_field}={values_of_field}"
-                print(log)
+                #print(log)
         
         return log
 
@@ -385,7 +381,7 @@ class ParserManager:
                 log.pop(field, None)
                 updated_json_log = json.dumps(log)
                 log = updated_json_log
-                print(log)
+                #print(log)
             
             elif format.lower() == "syslog":
                 # Regular expression pattern to match the field
@@ -396,7 +392,7 @@ class ParserManager:
                 updated_message = re.sub('  ', ' ', updated_message)
                 
                 log = updated_message.strip()
-                print(log)
+                #print(log)
         return log
 
 
@@ -418,7 +414,7 @@ class ParserManager:
                 log[name_of_field] = str(values_of_field)
                 updated_json_log = json.dumps(log)
                 log = updated_json_log
-                print(log)
+                #print(log)
             
             elif format.lower() == "syslog":
                 # Regular expression pattern to match the field
@@ -428,14 +424,33 @@ class ParserManager:
                 updated_message = re.sub(pattern, f"{name_of_field}={values_of_field}", log)
                 
                 log = updated_message.strip()
-                print(log)
+                #print(log)
         return log
+    
+    def change_format(self, fields, format, log):
+        new_format = list(fields)[0]["new_format"]
+        print(new_format)
+        if new_format.lower() == "syslog" and format.lower() == "json":
+            syslog_entry = ""
+            log = json.loads(log)
+            # Iterate over key-value pairs in JSON log
+            for key, value in log.items():
+                syslog_entry += f"{key}={value} "
+
+            # Remove trailing space and add any additional syslog fields if needed
+            syslog_entry = syslog_entry.strip()
+            print(syslog_entry)
+            return syslog_entry
+
 
 
 class Manage_SQL:
-    def __init__(self, db_credentials, db_command):
+    def __init__(self, db_credentials, db_command, connection_manager, parser_manager, db_name_of_parser):
         self.db_credentials = db_credentials
         self.db_command = db_command
+        self.connection_manager = connection_manager
+        self.parser_manager = parser_manager
+        self.name_of_parser = db_name_of_parser
         self.connect_db()
 
     def connect_db(self):
@@ -477,9 +492,19 @@ class Manage_SQL:
             # Fetch all rows from the result set
             rows = cur.fetchall()
 
-            # Print the rows
+            columns = [desc[0] for desc in cur.description]
+            #print(columns)
+            # Prepare data as a list of dictionaries
+            data = []
             for row in rows:
-                print(row)
+                row_data = {}
+                for col_name, value in zip(columns, row):
+                    row_data[col_name] = value
+                data_json = json.dumps(row_data)
+                parsered_log = self.parser_manager.manage_parser(self.name_of_parser, data_json)
+                self.connection_manager.send_logs(parsered_log, f"data from database")
+                #print(data_json) it is already printed in send_logs
+
             time.sleep(select_time)
 
         # Close the cursor and connection
@@ -506,7 +531,7 @@ def main():
     parsers = config.get('parsers', [])
     db_credentials = config.get("db_credentials", "none")
     db_command = config.get("db_command", "none")
-
+    db_name_of_parser = config.get("db_parser_name", "none")
     # create the parser manager
     parser_manager = ParserManager(parsers)
     
@@ -517,7 +542,7 @@ def main():
     port_listener.start_port_listener_thread()
     port_listener.start_log_count_thread()
 
-    sql_manager = Manage_SQL(db_credentials, db_command)
+    sql_manager = Manage_SQL(db_credentials, db_command, connection_manager,parser_manager, db_name_of_parser)
     sql_manager.start_sql_thread()
     # Create handlers for each log file
     handlers = []  # Store handlers for sending initial logs later
