@@ -17,6 +17,7 @@ import logging
 import sys
 import re
 import json
+import datetime
 
 # Configure logging to include timestamps
 logging.basicConfig(
@@ -249,7 +250,7 @@ class LogFileHandler(FileSystemEventHandler):
             time.sleep(self.time_to_sent_logs_on_agent)
 
 class PortListener:
-    def __init__(self, protocol, listen_port, destination_ip, destination_port, connection_manager, time_to_sent_logs_on_agent):
+    def __init__(self, protocol, listen_port, destination_ip, destination_port, connection_manager, time_to_sent_logs_on_agent, parser_manager, name_of_parser):
         self.protocol = protocol
         self.listen_port = listen_port
         self.destination_ip = destination_ip
@@ -258,6 +259,8 @@ class PortListener:
         self.socket = None
         self.time_to_sent_logs_on_agent = time_to_sent_logs_on_agent
         self.log_count = 0
+        self.parser_manager = parser_manager
+        self.name_of_parser = name_of_parser
 
     def run(self):
         try:
@@ -288,7 +291,8 @@ class PortListener:
                     data, _ = self.socket.recvfrom(4096)
 
                 if data:
-                    self.connection_manager.send_logs(data, f"port listener {self.listen_port}")
+                    parsered_log = self.parser_manager.manage_parser(self.name_of_parser, data)
+                    self.connection_manager.send_logs(parsered_log, f"port listener {self.listen_port}")
                     self.log_count = self.log_count + 1
 
             except Exception as e:
@@ -440,6 +444,7 @@ def main():
     time_to_sent_logs_on_agent = config["time_to_sent_logs_on_agent"]
     listening_port = config["listening_port"]
     listening_protocol = config["listening_protocol"]
+    listening_parser_name = config["listening_parser_name"]
     parsers = config.get('parsers', [])
 
     # create the parser manager
@@ -448,7 +453,7 @@ def main():
     # Create connection manager
     connection_manager = ConnectionManager(destination_ip, destination_port, transport_protocol)
     
-    port_listener = PortListener(listening_protocol, listening_port, destination_ip, destination_port, connection_manager, time_to_sent_logs_on_agent)
+    port_listener = PortListener(listening_protocol, listening_port, destination_ip, destination_port, connection_manager, time_to_sent_logs_on_agent, parser_manager, name_of_parser)
     port_listener.start_port_listener_thread()
     port_listener.start_log_count_thread()
 
