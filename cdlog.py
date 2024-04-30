@@ -488,7 +488,7 @@ class Manage_SQL:
                     row_data[col_name] = value
                 data_json = json.dumps(row_data)
                 self.connection_manager.send_logs(data_json, f"data from database")
-                print(data_json)
+                #print(data_json) it is already printed in send_logs
 
             time.sleep(select_time)
 
