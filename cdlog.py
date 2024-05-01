@@ -303,6 +303,7 @@ class PortListener:
                     data, _ = self.socket.recvfrom(4096)
 
                 if data:
+                    data = data.decode('utf-8')  # Assuming UTF-8 encoding, adjust if needed
                     if self.name_of_parser != "none":
                         data = self.parser_manager.manage_parser(self.name_of_parser, data, "ingnoreforcsv")
                     self.connection_manager.send_logs(data, f"port listener {self.listen_port}")
@@ -527,6 +528,40 @@ class ParserManager:
             # Remove trailing space and add any additional syslog fields if needed
             syslog_entry = syslog_entry.strip()
             return syslog_entry
+
+        elif format.lower() == "syslog" and new_format.lower() == "json":
+            # Define regular expression pattern to extract fields
+            default_regex = pattern = r'<(?P<priority>\d+)>\s*(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6})\s*(?P<hostname>\S+)\s+(?P<app_name>\S+):\s(?P<message>.*)$'
+            
+            #syslog_regex = list(fields)[0].get("syslog_regex", default_regex)
+            syslog_regex = default_regex
+            # Use regular expression to match the pattern
+            match = re.match(syslog_regex, log)
+
+            if match:
+                # Extract fields from the match object
+                priority = match.group('priority')
+                timestamp = match.group('timestamp')
+                hostname = match.group('hostname')
+                app_name = match.group('app_name')
+                message = match.group('message')
+
+                # Create a dictionary to hold the extracted fields
+                syslog_json = {
+                    'priority': int(priority),  # Convert priority to integer
+                    'timestamp': timestamp,
+                    'hostname': hostname,
+                    'app_name': app_name,
+                }
+
+                # Split the message into key-value pairs
+                message_pairs = message.split()
+                for pair in message_pairs:
+                    key, value = pair.split(':', 1)  # Split key-value pair
+                    syslog_json[key] = value
+
+                # Serialize the dictionary into a JSON string
+                return json.dumps(syslog_json)
         return log
 
 
@@ -694,5 +729,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 

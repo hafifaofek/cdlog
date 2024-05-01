@@ -527,6 +527,39 @@ class ParserManager:
             # Remove trailing space and add any additional syslog fields if needed
             syslog_entry = syslog_entry.strip()
             return syslog_entry
+
+        elif format.lower() == "syslog" and new_format.lower() == "json":
+            # Define regular expression pattern to extract fields
+            pattern = r'<(?P<priority>\d+)>\s*(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6})\s*(?P<hostname>\S+)\s+(?P<app_name>\S+):\s(?P<message>.*)$'
+
+            # Use regular expression to match the pattern
+            match = re.match(pattern, log)
+
+            if match:
+                # Extract fields from the match object
+                priority = match.group('priority')
+                timestamp = match.group('timestamp')
+                hostname = match.group('hostname')
+                app_name = match.group('app_name')
+                message = match.group('message')
+
+                # Create a dictionary to hold the extracted fields
+                syslog_json = {
+                    'priority': int(priority),  # Convert priority to integer
+                    'timestamp': timestamp,
+                    'hostname': hostname,
+                    'app_name': app_name,
+                }
+
+                # Split the message into key-value pairs
+                message_pairs = message.split()
+                print(message_pairs)
+                for pair in message_pairs:
+                    key, value = pair.split(':', 1)  # Split key-value pair
+                    syslog_json[key] = value
+
+                # Serialize the dictionary into a JSON string
+                return json.dumps(syslog_json)
         return log
 
 
