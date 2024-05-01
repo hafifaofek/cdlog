@@ -17,7 +17,7 @@ import logging
 import sys
 import re
 import json
-import datetime
+from datetime import datetime
 import psycopg2
 
 # Configure logging to include timestamps
@@ -174,10 +174,11 @@ class LogFileHandler(FileSystemEventHandler):
                 #print_logs(new_logs)
                 # Encrypt new logs
                 for log in new_logs:
-                    parsered_log = self.parser_manager.manage_parser(self.name_of_parser, log)
+                    if self.name_of_parser != "none":
+                        log = self.parser_manager.manage_parser(self.name_of_parser, log)
                     #encrypted_logs = encrypt_logs(log, self.encryption_key)
                     # Send encrypted logs
-                    self.connection_manager.send_logs(parsered_log, self.log_file)
+                    self.connection_manager.send_logs(log, self.log_file)
                     self.log_count = self.log_count + 1
 
             # Check if the file has been rotated (size decreased)
@@ -219,9 +220,10 @@ class LogFileHandler(FileSystemEventHandler):
         self.log_position = position
         
         for log in initial_logs:
-            parsered_log = self.parser_manager.manage_parser(self.name_of_parser, log)
+            if self.name_of_parser != "none":
+                log = self.parser_manager.manage_parser(self.name_of_parser, log)
             #encrypted_logs = encrypt_logs(log, self.encryption_key)
-            self.connection_manager.send_logs(parsered_log, self.log_file)
+            self.connection_manager.send_logs(log, self.log_file)
             self.log_count = self.log_count + 1
 
     def create_observer(self):
@@ -292,8 +294,9 @@ class PortListener:
                     data, _ = self.socket.recvfrom(4096)
 
                 if data:
-                    parsered_log = self.parser_manager.manage_parser(self.name_of_parser, data)
-                    self.connection_manager.send_logs(parsered_log, f"port listener {self.listen_port}")
+                    if self.name_of_parser != "none":
+                        data = self.parser_manager.manage_parser(self.name_of_parser, data)
+                    self.connection_manager.send_logs(data, f"port listener {self.listen_port}")
                     self.log_count = self.log_count + 1
 
             except Exception as e:
@@ -320,7 +323,7 @@ class ParserManager:
         self.parsers = parsers
         self.dict_of_parsers = {}
         self.load_parsers()
-        self.actions_options = {"add_fields": self.add_fields, "remove_fields": self.remove_fields, "change_fields": self.change_fields, "change_format": self.change_format}
+        self.actions_options = {"add_fields": self.add_fields, "remove_fields": self.remove_fields, "change_fields": self.change_fields, "change_format": self.change_format, "change_timestamp_format": self.change_timestamp_format}
         #self.manage_parser("parser 1")
 
     
@@ -329,20 +332,41 @@ class ParserManager:
             parser_name = parser["name"]
             format = parser["format"]
             actions = parser["actions"]
-            self.dict_of_parsers.update({parser_name: {"format": format, "actions": actions}})
+            if_not_exists = parser.get("if_not_exists", "fail")
+            self.dict_of_parsers.update({parser_name: {"format": format, "actions": actions, "if_not_exists": if_not_exists}})
     
     def manage_parser(self, parser_name, log):
         current_parser = self.dict_of_parsers[parser_name]
         format = current_parser["format"]
         actions = current_parser["actions"]
-        try:
+        if_not_exists = current_parser.get("if_not_exists", "fail")
+        counter_success = 0
+        counter_failed = 0
+        errors_list = []
+        if if_not_exists == "ignore":
             for action in actions:
                 for key in action.keys():
-                    log = self.actions_options[key](action.values(), format, log)
-            logging.info(f"Success in parsing log")
-        except Exception as e:
-            logging.error(f"Error in parsing log: {e}")
-        return log
+                    try:
+                        log = self.actions_options[key](action.values(), format, log)
+                        counter_success += 1
+                    except Exception as e:
+                        counter_failed += 1
+                        errors_list.append(e)
+            if counter_failed == 0:
+                logging.info(f"Success in parsing all {counter_success} actions")
+            else:
+                logging.info(f"success in parsing {counter_success} actions, failed in parsing {counter_failed} actions - {errors_list}")
+            return log
+        else:
+            try:
+                for action in actions:
+                    for key in action.keys():
+                        log = self.actions_options[key](action.values(), format, log)
+                logging.info(f"Success in parsing log")
+            except Exception as e:
+                logging.error(f"Error in parsing log: {e}")
+            return log
+
     
     def add_fields(self, fields, format, log):
         fields = list(fields)[0]["fields"]
@@ -427,6 +451,38 @@ class ParserManager:
                 #print(log)
         return log
     
+    def change_timestamp_format(self, fields, format, log):
+        formats = list(fields)[0]["formats"]
+        former_format = formats["former_format"]
+        new_format = formats["new_format"]
+        
+        if format.lower() == "json":
+            log = json.loads(log)
+            old_timestamp = log['timestamp']
+            parsed_timestamp = datetime.strptime(old_timestamp, former_format)
+
+            new_timestamp = parsed_timestamp.strftime(new_format)
+
+            log['timestamp'] = new_timestamp
+            updated_json_log = json.dumps(log)
+            log = updated_json_log
+            return log
+        
+        elif format.lower() == "syslog":
+            default_regex = r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}"
+            syslog_regex = formats.get("syslog_regex", default_regex)
+
+            #old_timestamp_match = re.search(syslog_regex, log)
+            old_timestamp_match = re.search(default_regex, log)
+            old_timestamp = old_timestamp_match.group()
+            parsed_timestamp = datetime.strptime(old_timestamp, former_format)
+            new_timestamp = parsed_timestamp.strftime(new_format)
+
+            #new_log_line = re.sub(syslog_regex, str(new_timestamp), log)
+            new_log_line = re.sub(default_regex, str(new_timestamp), log)
+            return new_log_line
+
+
     def change_format(self, fields, format, log):
         new_format = list(fields)[0]["new_format"]
 
@@ -441,6 +497,7 @@ class ParserManager:
             syslog_entry = syslog_entry.strip()
             #print(syslog_entry)
             return syslog_entry
+        return log
 
 
 
@@ -501,8 +558,9 @@ class Manage_SQL:
                 for col_name, value in zip(columns, row):
                     row_data[col_name] = value
                 data_json = json.dumps(row_data)
-                parsered_log = self.parser_manager.manage_parser(self.name_of_parser, data_json)
-                self.connection_manager.send_logs(parsered_log, f"data from database")
+                if self.name_of_parser != "none":
+                    data_json = self.parser_manager.manage_parser(self.name_of_parser, data_json)
+                self.connection_manager.send_logs(data_json, f"data from database")
                 #print(data_json) it is already printed in send_logs
 
             time.sleep(select_time)
@@ -525,9 +583,9 @@ def main():
     encryption_key = config["encryption_key"]
     transport_protocol = config["transport_protocol"]
     time_to_sent_logs_on_agent = config["time_to_sent_logs_on_agent"]
-    listening_port = config["listening_port"]
-    listening_protocol = config["listening_protocol"]
-    listening_parser_name = config["listening_parser_name"]
+    listening_port = config.get("listening_port", "none")
+    listening_protocol = config.get("listening_protocol", "none")
+    listening_parser_name = config.get("listening_parser_name", "none")
     parsers = config.get('parsers', [])
     db_credentials = config.get("db_credentials", "none")
     db_command = config.get("db_command", "none")
@@ -537,13 +595,20 @@ def main():
     
     # Create connection manager
     connection_manager = ConnectionManager(destination_ip, destination_port, transport_protocol)
-    
-    port_listener = PortListener(listening_protocol, listening_port, destination_ip, destination_port, connection_manager, time_to_sent_logs_on_agent, parser_manager, listening_parser_name)
-    port_listener.start_port_listener_thread()
-    port_listener.start_log_count_thread()
+    if listening_port != "none" and listening_protocol != "none":
+        port_listener = PortListener(listening_protocol, listening_port, destination_ip, destination_port, connection_manager, time_to_sent_logs_on_agent, parser_manager, listening_parser_name)
+        port_listener.start_port_listener_thread()
+        port_listener.start_log_count_thread()
+        logging.info(f"port listening started")
+    else:
+        logging.info(f"not listening to port")
 
-    sql_manager = Manage_SQL(db_credentials, db_command, connection_manager,parser_manager, db_name_of_parser)
-    sql_manager.start_sql_thread()
+    if db_credentials != "none" and db_command != "none":
+        sql_manager = Manage_SQL(db_credentials, db_command, connection_manager,parser_manager, db_name_of_parser)
+        sql_manager.start_sql_thread()
+        logging.info(f"working with db")
+    else:
+        logging.info(f"not working with db because of no conf")
     # Create handlers for each log file
     handlers = []  # Store handlers for sending initial logs later
     for log_dir in log_directories:
