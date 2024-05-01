@@ -1,0 +1,9 @@
+1. in windows, you must observ directories and not the files itself
+
+
+
+for creating zip - 
+pyinstaller --onefile cdlog.py
+
+# the zip should contain 3 files: cdlog, cdlog.conf and install_cdlog.ps1
+this file is saved here
