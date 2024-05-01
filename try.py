@@ -175,7 +175,7 @@ class LogFileHandler(FileSystemEventHandler):
                 # Encrypt new logs
                 for log in new_logs:
                     if self.name_of_parser != "none":
-                        log = self.parser_manager.manage_parser(self.name_of_parser, log)
+                        log = self.parser_manager.manage_parser(self.name_of_parser, log, self.first_line_keys)
                     #encrypted_logs = encrypt_logs(log, self.encryption_key)
                     # Send encrypted logs
                     self.connection_manager.send_logs(log, self.log_file)
@@ -211,7 +211,15 @@ class LogFileHandler(FileSystemEventHandler):
             self.start_file_tracking()
         
         self.file_handle.seek(0)
-        lines = self.file_handle.readlines()[-self.num_logs_to_send:]
+        lines = self.file_handle.readlines()
+        first_line = lines[0]
+        if self.log_file.endswith(".csv"):
+            self.first_line_keys = first_line.split(",")
+        else:
+            self.first_line_keys = ["ingoreforcsv"]
+        
+        print(self.first_line_keys)
+        lines = lines[-self.num_logs_to_send:]
         position = self.file_handle.tell()
         initial_logs = []
         
@@ -221,7 +229,7 @@ class LogFileHandler(FileSystemEventHandler):
         
         for log in initial_logs:
             if self.name_of_parser != "none":
-                log = self.parser_manager.manage_parser(self.name_of_parser, log)
+                log = self.parser_manager.manage_parser(self.name_of_parser, log, self.first_line_keys)
             #encrypted_logs = encrypt_logs(log, self.encryption_key)
             self.connection_manager.send_logs(log, self.log_file)
             self.log_count = self.log_count + 1
@@ -295,7 +303,7 @@ class PortListener:
 
                 if data:
                     if self.name_of_parser != "none":
-                        data = self.parser_manager.manage_parser(self.name_of_parser, data)
+                        data = self.parser_manager.manage_parser(self.name_of_parser, data, "ingnoreforcsv")
                     self.connection_manager.send_logs(data, f"port listener {self.listen_port}")
                     self.log_count = self.log_count + 1
 
@@ -335,7 +343,7 @@ class ParserManager:
             if_not_exists = parser.get("if_not_exists", "fail")
             self.dict_of_parsers.update({parser_name: {"format": format, "actions": actions, "if_not_exists": if_not_exists}})
     
-    def manage_parser(self, parser_name, log):
+    def manage_parser(self, parser_name, log, first_line_keys):
         current_parser = self.dict_of_parsers[parser_name]
         format = current_parser["format"]
         actions = current_parser["actions"]
@@ -362,13 +370,16 @@ class ParserManager:
                 for action in actions:
                     for key in action.keys():
                         log = self.actions_options[key](action.values(), format, log)
-                logging.info(f"Success in parsing log")
+                        counter_success += 1
+                logging.info(f"Success in parsing all {counter_success} actions")
             except Exception as e:
-                logging.error(f"Error in parsing log: {e}")
+                counter_failed = 0
+                errors_list.append(e)
+                logging.info(f"success in parsing {counter_success} actions, failed in parsing {counter_failed} actions - {errors_list}")
             return log
 
     
-    def add_fields(self, fields, format, log):
+    def add_fields(self, fields, format, log, first_line_keys):
         fields = list(fields)[0]["fields"]
         for field in fields:
             keys = list(field.keys())
@@ -396,7 +407,7 @@ class ParserManager:
         
         return log
 
-    def remove_fields(self, fields, format, log):
+    def remove_fields(self, fields, format, log, first_line_keys):
         fields = list(fields)[0]["fields"]
         for field in fields:
             if format.lower() == "json":
@@ -420,7 +431,7 @@ class ParserManager:
         return log
 
 
-    def change_fields(self, fields, format, log):
+    def change_fields(self, fields, format, log, first_line_keys):
         fields = list(fields)[0]["fields"]
         for field in fields:
             keys = list(field.keys())
@@ -451,7 +462,7 @@ class ParserManager:
                 #print(log)
         return log
     
-    def change_timestamp_format(self, fields, format, log):
+    def change_timestamp_format(self, fields, format, log, first_line_keys):
         formats = list(fields)[0]["formats"]
         former_format = formats["former_format"]
         new_format = formats["new_format"]
@@ -483,7 +494,7 @@ class ParserManager:
             return new_log_line
 
 
-    def change_format(self, fields, format, log):
+    def change_format(self, fields, format, log, first_line_keys):
         new_format = list(fields)[0]["new_format"]
 
         if new_format.lower() == "syslog" and format.lower() == "json":
@@ -497,6 +508,11 @@ class ParserManager:
             syslog_entry = syslog_entry.strip()
             #print(syslog_entry)
             return syslog_entry
+        
+        elif format.lower() == "csv" and new_format.lower() == "json":
+            log_values = log.split(",")
+            for key, value in first_line_keys, log_values:
+                print(f"{key} - {value}")
         return log
 
 
@@ -559,7 +575,7 @@ class Manage_SQL:
                     row_data[col_name] = value
                 data_json = json.dumps(row_data)
                 if self.name_of_parser != "none":
-                    data_json = self.parser_manager.manage_parser(self.name_of_parser, data_json)
+                    data_json = self.parser_manager.manage_parser(self.name_of_parser, data_json, "ingnoreforcsv")
                 self.connection_manager.send_logs(data_json, f"data from database")
                 #print(data_json) it is already printed in send_logs
 
