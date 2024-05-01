@@ -356,7 +356,6 @@ class ParserManager:
             for action in actions:
                 for key in action.keys():
                     try:
-                        print(first_line_keys)
                         log = self.actions_options[key](action.values(), format, log, first_line_keys)
                         counter_success += 1
                     except Exception as e:
@@ -518,6 +517,16 @@ class ParserManager:
                 json_log[key] = value
             json_string = json.dumps(json_log)
             return json_string
+        
+        elif format.lower() == "csv" and new_format.lower() == "syslog":
+            log_values = log.split(",")
+            syslog_entry = ""
+            for key, value in zip(first_line_keys, log_values):
+                syslog_entry += f"{key}={value} "
+
+            # Remove trailing space and add any additional syslog fields if needed
+            syslog_entry = syslog_entry.strip()
+            return syslog_entry
         return log
 
 

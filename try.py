@@ -212,7 +212,8 @@ class LogFileHandler(FileSystemEventHandler):
         
         self.file_handle.seek(0)
         lines = self.file_handle.readlines()
-        first_line = lines[0]
+        first_line = lines[0].rstrip()
+        
         if self.log_file.endswith(".csv"):
             self.first_line_keys = first_line.split(",")
         else:
@@ -355,7 +356,7 @@ class ParserManager:
             for action in actions:
                 for key in action.keys():
                     try:
-                        log = self.actions_options[key](action.values(), format, log)
+                        log = self.actions_options[key](action.values(), format, log, first_line_keys)
                         counter_success += 1
                     except Exception as e:
                         counter_failed += 1
@@ -369,7 +370,7 @@ class ParserManager:
             try:
                 for action in actions:
                     for key in action.keys():
-                        log = self.actions_options[key](action.values(), format, log)
+                        log = self.actions_options[key](action.values(), format, log, first_line_keys)
                         counter_success += 1
                 logging.info(f"Success in parsing all {counter_success} actions")
             except Exception as e:
@@ -496,7 +497,7 @@ class ParserManager:
 
     def change_format(self, fields, format, log, first_line_keys):
         new_format = list(fields)[0]["new_format"]
-
+        
         if new_format.lower() == "syslog" and format.lower() == "json":
             syslog_entry = ""
             log = json.loads(log)
@@ -511,8 +512,21 @@ class ParserManager:
         
         elif format.lower() == "csv" and new_format.lower() == "json":
             log_values = log.split(",")
-            for key, value in first_line_keys, log_values:
-                print(f"{key} - {value}")
+            json_log = {}
+            for key, value in zip(first_line_keys, log_values):
+                json_log[key] = value
+            json_string = json.dumps(json_log)
+            return json_string
+        
+        elif format.lower() == "csv" and new_format.lower() == "syslog":
+            log_values = log.split(",")
+            syslog_entry = ""
+            for key, value in zip(first_line_keys, log_values):
+                syslog_entry += f"{key}={value} "
+
+            # Remove trailing space and add any additional syslog fields if needed
+            syslog_entry = syslog_entry.strip()
+            return syslog_entry
         return log
 
 
@@ -680,4 +694,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
