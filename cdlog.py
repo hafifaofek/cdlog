@@ -219,7 +219,6 @@ class LogFileHandler(FileSystemEventHandler):
         else:
             self.first_line_keys = ["ingoreforcsv"]
         
-        print(self.first_line_keys)
         lines = lines[-self.num_logs_to_send:]
         position = self.file_handle.tell()
         initial_logs = []
