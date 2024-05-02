@@ -1,9 +1,19 @@
 1. in windows, you must observ directories and not the files itself
-
+2. in windows, put full path for conf file
+3. in windows, while true program dont let service to start ??
 
 
 for creating zip - 
 pyinstaller --onefile cdlog.py
 
-# the zip should contain 3 files: cdlog, cdlog.conf and install_cdlog.ps1
+create service using nssm - 
+install nssm from their website
+** important to be in nssm directory - 
+** Include nssm in the zip 
+** need to change the current path to the path of the folder with all the files in powershell **********
+just run the install_cdlog.ps1 script
+nssm install ServiceName "C:\Users\Ofek Ellenbogen\Desktop\dist\try_service.exe"
+net start ServiceName
+
+# the zip should contain 4 files: cdlog, cdlog.conf and install_cdlog.ps1, nssm
 this file is saved here
