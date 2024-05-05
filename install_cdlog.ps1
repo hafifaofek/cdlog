@@ -1,7 +1,13 @@
 # Define variables
-$serviceName = "cdlogService3"
+$serviceName = "cdlogService"
 $servicePath = "C:\Program Files\cdlog\cdlog.exe"
 $serviceConfigPath = "C:\Program Files\cdlog\cdlog.conf"
+
+# Get the directory of the currently executing script
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+
+# Set the current location to the script directory
+Set-Location -Path $scriptDir
 
 # Copy files to installation directory
 $installDir = "C:\Program Files\cdlog"
