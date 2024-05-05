@@ -36,10 +36,6 @@ def encrypt_logs(logs, key):
         encrypted_logs.append(f.encrypt(log.encode()))
     return encrypted_logs
 
-# Function to print logs
-def print_logs(logs):
-    for log in logs:
-        print(log)
 
 # Connection manager class for both TCP and UDP
 class ConnectionManager:
@@ -87,7 +83,7 @@ class ConnectionManager:
                 logs = logs[0]
             
             if self.protocol == "TCP":
-                self.socket.sendall(log)
+                self.socket.sendall(logs)
             
             elif self.protocol == "UDP":
                 if isinstance(logs, bytes):
@@ -171,7 +167,7 @@ class LogFileHandler(FileSystemEventHandler):
                 self.start_file_tracking()
             new_logs = self.collect_new_logs()
             if new_logs:
-                #print_logs(new_logs)
+
                 # Encrypt new logs
                 for log in new_logs:
                     if self.name_of_parser != "none":
@@ -249,9 +245,7 @@ class LogFileHandler(FileSystemEventHandler):
     def start_log_count_thread(self):
         # Create and start a thread for my_function
         threading.Thread(target=self.log_count_to_itself).start()
-        #self.thread = threading.Thread(target=self.log_count_to_itself)
-        #self.thread.daemon = True  # Set the thread as daemon
-        #self.thread.start()
+
 
     def log_count_to_itself(self):
         while True:
@@ -333,8 +327,6 @@ class ParserManager:
         self.dict_of_parsers = {}
         self.load_parsers()
         self.actions_options = {"add_fields": self.add_fields, "remove_fields": self.remove_fields, "change_fields": self.change_fields, "change_format": self.change_format, "change_timestamp_format": self.change_timestamp_format}
-        #self.manage_parser("parser 1")
-
     
     def load_parsers(self):
         for parser in self.parsers:
@@ -400,11 +392,9 @@ class ParserManager:
                 log[name_of_field] = str(values_of_field)
                 updated_json_log = json.dumps(log)
                 log = updated_json_log
-                #print(log)
             
             elif format.lower() == "syslog":
                 log = f"{log} {name_of_field}={values_of_field}"
-                #print(log)
         
         return log
 
@@ -417,7 +407,6 @@ class ParserManager:
                 log.pop(field, None)
                 updated_json_log = json.dumps(log)
                 log = updated_json_log
-                #print(log)
             
             elif format.lower() == "syslog":
                 # Regular expression pattern to match the field
@@ -428,7 +417,6 @@ class ParserManager:
                 updated_message = re.sub('  ', ' ', updated_message)
                 
                 log = updated_message.strip()
-                #print(log)
         return log
 
 
@@ -450,7 +438,6 @@ class ParserManager:
                 log[name_of_field] = str(values_of_field)
                 updated_json_log = json.dumps(log)
                 log = updated_json_log
-                #print(log)
             
             elif format.lower() == "syslog":
                 # Regular expression pattern to match the field
@@ -460,7 +447,6 @@ class ParserManager:
                 updated_message = re.sub(pattern, f"{name_of_field}={values_of_field}", log)
                 
                 log = updated_message.strip()
-                #print(log)
         return log
     
     def change_timestamp_format(self, fields, format, log, first_line_keys):
@@ -507,7 +493,6 @@ class ParserManager:
 
             # Remove trailing space and add any additional syslog fields if needed
             syslog_entry = syslog_entry.strip()
-            #print(syslog_entry)
             return syslog_entry
         
         elif format.lower() == "csv" and new_format.lower() == "json":
