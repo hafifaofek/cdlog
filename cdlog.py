@@ -21,14 +21,6 @@ from datetime import datetime
 import psycopg2
 import base64
 
-# Configure logging to include timestamps
-logging.basicConfig(
-    filename='/etc/cdlog/cdlog.log', 
-    level=logging.INFO,
-    format='%(levelname)s - %(asctime)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-
 # Function to encrypt logs using Fernet symmetric encryption
 def encrypt_logs(logs, key):
     f = Fernet(key)
@@ -663,7 +655,7 @@ def main():
     
     # Configure logging to include timestamps
     logging.basicConfig(
-    filename=path_to_cdlog_log_file, 
+    filename=rf"{path_to_cdlog_log_file}", 
     level=logging.INFO,
     format='%(levelname)s - %(asctime)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
