@@ -19,6 +19,7 @@ import re
 import json
 from datetime import datetime
 import psycopg2
+import base64
 
 # Configure logging to include timestamps
 logging.basicConfig(
@@ -643,6 +644,10 @@ def main():
     destination_ip = config["destination_ip"]
     destination_port = config["destination_port"]
     encryption_key = config["encryption_key"]
+
+    # Decode the Base64 encoded key
+    encryption_key = base64.b64decode(encryption_key).decode()
+
     path_to_cdlog_log_file = config["path_to_cdlog_log_file"]
     transport_protocol = config["transport_protocol"]
     time_to_sent_logs_on_agent = config["time_to_sent_logs_on_agent"]
