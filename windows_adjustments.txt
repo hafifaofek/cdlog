@@ -17,3 +17,7 @@ net start ServiceName
 
 # the zip should contain 4 files: cdlog, cdlog.conf and install_cdlog.ps1, nssm
 this file is saved here
+
+for creating msi installer with advanced installer
+adding all four files to files: cdlog.exe, cdlog.conf, nssm, install_cdlog.ps1
+building, thats it
