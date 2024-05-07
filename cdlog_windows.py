@@ -19,15 +19,7 @@ import re
 import json
 from datetime import datetime
 import psycopg2
-import asyncio
-
-# Configure logging to include timestamps
-logging.basicConfig(
-    filename=r'C:\Program Files\cdlog\cdlog.log', 
-    level=logging.INFO,
-    format='%(levelname)s - %(asctime)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+import base64
 
 # Function to encrypt logs using Fernet symmetric encryption
 def encrypt_logs(logs, key):
@@ -37,10 +29,6 @@ def encrypt_logs(logs, key):
         encrypted_logs.append(f.encrypt(log.encode()))
     return encrypted_logs
 
-# Function to print logs
-def print_logs(logs):
-    for log in logs:
-        print(log)
 
 # Connection manager class for both TCP and UDP
 class ConnectionManager:
@@ -127,7 +115,7 @@ class ConnectionManager:
         self.timeout_thread = None
 
 class LogFileHandler(FileSystemEventHandler):
-    def __init__(self, log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol, num_logs_to_send, parser_manager, name_of_parser):
+    def __init__(self, log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol, num_logs_to_send, parser_manager, name_of_parser, csv_split_icon):
         super(LogFileHandler, self).__init__()
         self.log_file = log_file
         self.connection_manager = connection_manager
@@ -143,6 +131,9 @@ class LogFileHandler(FileSystemEventHandler):
         self.num_logs_to_send = num_logs_to_send
         self.parser_manager = parser_manager
         self.name_of_parser = name_of_parser
+        self.csv_split_icon = csv_split_icon
+        if self.csv_split_icon == "none":
+            self.csv_split_icon = ","
 
     def start_file_tracking(self):
 
@@ -167,13 +158,12 @@ class LogFileHandler(FileSystemEventHandler):
         self.observer = None
 
     def on_modified(self, event):
-        print("changed")
         if not event.is_directory and event.src_path == self.log_file:
             if self.file_handle is None:
                 self.start_file_tracking()
             new_logs = self.collect_new_logs()
             if new_logs:
-                #print_logs(new_logs)
+
                 # Encrypt new logs
                 for log in new_logs:
                     if self.name_of_parser != "none":
@@ -217,7 +207,7 @@ class LogFileHandler(FileSystemEventHandler):
         first_line = lines[0].rstrip()
         
         if self.log_file.endswith(".csv"):
-            self.first_line_keys = first_line.split(",")
+            self.first_line_keys = first_line.split(self.csv_split_icon)
         else:
             self.first_line_keys = ["ingoreforcsv"]
         
@@ -243,7 +233,7 @@ class LogFileHandler(FileSystemEventHandler):
             self.observer = Observer()
             self.observer.schedule(self, directory)
             self.observer.start()
-            logging.info(f"Observer created for file {current_file} from {directory}.")
+            logging.info(f"Observer created for file {current_file}.")
         else:
             logging.error(f"file {current_file} does not exist.")
             print(f"file {current_file} does not exist.")
@@ -251,9 +241,7 @@ class LogFileHandler(FileSystemEventHandler):
     def start_log_count_thread(self):
         # Create and start a thread for my_function
         threading.Thread(target=self.log_count_to_itself).start()
-        #self.thread = threading.Thread(target=self.log_count_to_itself)
-        #self.thread.daemon = True  # Set the thread as daemon
-        #self.thread.start()
+
 
     def log_count_to_itself(self):
         while True:
@@ -330,14 +318,15 @@ class PortListener:
 
 
 class ParserManager:
-    def __init__(self, parsers):
+    def __init__(self, parsers, csv_split_icon):
         self.parsers = parsers
         self.dict_of_parsers = {}
         self.load_parsers()
         self.actions_options = {"add_fields": self.add_fields, "remove_fields": self.remove_fields, "change_fields": self.change_fields, "change_format": self.change_format, "change_timestamp_format": self.change_timestamp_format}
-        #self.manage_parser("parser 1")
-
-    
+        self.csv_split_icon =csv_split_icon
+        if self.csv_split_icon == "none":
+            self.csv_split_icon = ","
+        
     def load_parsers(self):
         for parser in self.parsers:
             parser_name = parser["name"]
@@ -345,6 +334,7 @@ class ParserManager:
             actions = parser["actions"]
             if_not_exists = parser.get("if_not_exists", "fail")
             self.dict_of_parsers.update({parser_name: {"format": format, "actions": actions, "if_not_exists": if_not_exists}})
+        
     
     def manage_parser(self, parser_name, log, first_line_keys):
         current_parser = self.dict_of_parsers[parser_name]
@@ -402,11 +392,9 @@ class ParserManager:
                 log[name_of_field] = str(values_of_field)
                 updated_json_log = json.dumps(log)
                 log = updated_json_log
-                #print(log)
             
             elif format.lower() == "syslog":
                 log = f"{log} {name_of_field}={values_of_field}"
-                #print(log)
         
         return log
 
@@ -419,7 +407,6 @@ class ParserManager:
                 log.pop(field, None)
                 updated_json_log = json.dumps(log)
                 log = updated_json_log
-                #print(log)
             
             elif format.lower() == "syslog":
                 # Regular expression pattern to match the field
@@ -430,7 +417,6 @@ class ParserManager:
                 updated_message = re.sub('  ', ' ', updated_message)
                 
                 log = updated_message.strip()
-                #print(log)
         return log
 
 
@@ -452,7 +438,6 @@ class ParserManager:
                 log[name_of_field] = str(values_of_field)
                 updated_json_log = json.dumps(log)
                 log = updated_json_log
-                #print(log)
             
             elif format.lower() == "syslog":
                 # Regular expression pattern to match the field
@@ -462,7 +447,6 @@ class ParserManager:
                 updated_message = re.sub(pattern, f"{name_of_field}={values_of_field}", log)
                 
                 log = updated_message.strip()
-                #print(log)
         return log
     
     def change_timestamp_format(self, fields, format, log, first_line_keys):
@@ -509,11 +493,11 @@ class ParserManager:
 
             # Remove trailing space and add any additional syslog fields if needed
             syslog_entry = syslog_entry.strip()
-            #print(syslog_entry)
             return syslog_entry
         
         elif format.lower() == "csv" and new_format.lower() == "json":
-            log_values = log.split(",")
+
+            log_values = log.split(self.csv_split_icon)
             json_log = {}
             for key, value in zip(first_line_keys, log_values):
                 json_log[key] = value
@@ -521,7 +505,7 @@ class ParserManager:
             return json_string
         
         elif format.lower() == "csv" and new_format.lower() == "syslog":
-            log_values = log.split(",")
+            log_values = log.split(self.csv_split_icon)
             syslog_entry = ""
             for key, value in zip(first_line_keys, log_values):
                 syslog_entry += f"{key}={value} "
@@ -568,9 +552,10 @@ class ParserManager:
 
 
 class Manage_SQL:
-    def __init__(self, db_credentials, db_command, connection_manager, parser_manager, db_name_of_parser):
+    def __init__(self, db_credentials, db_command_by_format, db_command_without_format, connection_manager, parser_manager, db_name_of_parser):
         self.db_credentials = db_credentials
-        self.db_command = db_command
+        self.db_command_by_format = db_command_by_format
+        self.db_command_without_format = db_command_without_format
         self.connection_manager = connection_manager
         self.parser_manager = parser_manager
         self.name_of_parser = db_name_of_parser
@@ -578,7 +563,7 @@ class Manage_SQL:
 
     def connect_db(self):
         # Connect to the PostgreSQL database
-        if self.db_credentials == "none" or self.db_command == "none":
+        if self.db_credentials == "none" or (self.db_command_by_format == "none" and self.db_command_without_format == "none"):
             logging.error(f"Error in connecting to db")
         else:
             try:
@@ -595,19 +580,23 @@ class Manage_SQL:
     def manage(self):
         # Create a cursor object
         cur = self.conn.cursor()
+        if self.db_command_by_format != "none":
+            select = self.db_command_by_format.get("SELECT", "none")
+            FROM = self.db_command_by_format.get("FROM", "none")
+            WHERE = self.db_command_by_format.get("WHERE", "none")
+            select_time = self.db_command_by_format["SELECT_TIME"]
+            command = ""
+            if select != "none":
+                command += f"SELECT {select} "
+            if FROM != "none":
+                command += f"FROM {FROM} "
+            if WHERE != "none":
+                command += f"WHERE {WHERE}"
+            command += f";"
+        else:
+            command = self.db_command_without_format.get("command", "none")
+            select_time = self.db_command_without_format["select_time"]
 
-        select = self.db_command.get("SELECT", "none")
-        FROM = self.db_command.get("FROM", "none")
-        WHERE = self.db_command.get("WHERE", "none")
-        select_time = self.db_command["SELECT_TIME"]
-        command = ""
-        if select != "none":
-            command += f"SELECT {select} "
-        if FROM != "none":
-            command += f"FROM {FROM} "
-        if WHERE != "none":
-            command += f"WHERE {WHERE}"
-        command += f";"
         while True:
             # Execute a SELECT query
             cur.execute(command)
@@ -638,10 +627,8 @@ class Manage_SQL:
     def start_sql_thread(self):
         threading.Thread(target=self.manage).start()
 
-
-
 def main():
-    with open(r'C:\Program Files\cdlog\cdlog.conf', 'r') as f:
+    with open("cdlog.conf", 'r') as f:
         config = yaml.safe_load(f)
 
     # Extract configuration parameters
@@ -649,17 +636,33 @@ def main():
     destination_ip = config["destination_ip"]
     destination_port = config["destination_port"]
     encryption_key = config["encryption_key"]
+
+    # Decode the Base64 encoded key
+    encryption_key = base64.b64decode(encryption_key).decode()
+
+    path_to_cdlog_log_file = config["path_to_cdlog_log_file"]
     transport_protocol = config["transport_protocol"]
     time_to_sent_logs_on_agent = config["time_to_sent_logs_on_agent"]
     listening_port = config.get("listening_port", "none")
     listening_protocol = config.get("listening_protocol", "none")
     listening_parser_name = config.get("listening_parser_name", "none")
     parsers = config.get('parsers', [])
+    csv_split_icon = config.get("csv_split_icon", "none")
     db_credentials = config.get("db_credentials", "none")
-    db_command = config.get("db_command", "none")
+    db_command_by_format = config.get("db_command_by_format", "none")
+    db_command_without_format = config.get("db_command_without_format", "none")
     db_name_of_parser = config.get("db_parser_name", "none")
+    
+    # Configure logging to include timestamps
+    logging.basicConfig(
+    filename=rf"{path_to_cdlog_log_file}", 
+    level=logging.INFO,
+    format='%(levelname)s - %(asctime)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
     # create the parser manager
-    parser_manager = ParserManager(parsers)
+    parser_manager = ParserManager(parsers, csv_split_icon)
     
     # Create connection manager
     connection_manager = ConnectionManager(destination_ip, destination_port, transport_protocol)
@@ -671,8 +674,8 @@ def main():
     else:
         logging.info(f"not listening to port")
 
-    if db_credentials != "none" and db_command != "none":
-        sql_manager = Manage_SQL(db_credentials, db_command, connection_manager,parser_manager, db_name_of_parser)
+    if db_credentials != "none" and (db_command_by_format != "none" or db_command_without_format != "none"):
+        sql_manager = Manage_SQL(db_credentials, db_command_by_format, db_command_without_format, connection_manager,parser_manager, db_name_of_parser)
         sql_manager.start_sql_thread()
         logging.info(f"working with db")
     else:
@@ -680,6 +683,7 @@ def main():
     # Create handlers for each log file
     handlers = []  # Store handlers for sending initial logs later
     for log_dir in log_directories:
+        
         directory = log_dir["directory"]
         formats = log_dir.get("formats", ["*"])  # Get formats if defined, otherwise use "*"
         excludes = log_dir.get("excludes", "none")
@@ -688,6 +692,7 @@ def main():
         
         # Assuming directory is the path to the directory or file
         if os.path.isdir(directory):
+            
             # Handle as directory
             for root, _, files in os.walk(directory):
                 
@@ -695,12 +700,13 @@ def main():
                 files_without_excludes = [x for x in files if x not in excludes]
                 
                 for file in files_without_excludes:
+                    
                     for format in formats:
                         
                         if file.endswith(format) or format == "*":
                             log_file = os.path.join(root, file)
                             # Create a new observer for each log file
-                            event_handler = LogFileHandler(log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol, num_logs_to_send, parser_manager, name_of_parser)
+                            event_handler = LogFileHandler(log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol, num_logs_to_send, parser_manager, name_of_parser, csv_split_icon)
 
                             event_handler.send_initial_logs()
                             event_handler.start_log_count_thread()
@@ -708,12 +714,11 @@ def main():
                             handlers.append(event_handler)
         else:
             # Handle as file
-            print("2")
             for format in formats:
                 if directory.endswith(format) or format == "*":
                     log_file = directory
                     # Create a new observer for each log file
-                    event_handler = LogFileHandler(log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol, num_logs_to_send, parser_manager, name_of_parser)
+                    event_handler = LogFileHandler(log_file, connection_manager, encryption_key, time_to_sent_logs_on_agent, destination_ip, destination_port, transport_protocol, num_logs_to_send, parser_manager, name_of_parser, csv_split_icon)
                     
                     event_handler.send_initial_logs()
                     event_handler.start_log_count_thread()
